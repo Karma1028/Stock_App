@@ -1,0 +1,14 @@
+streamlit
+pandas
+numpy
+yfinance>=0.2.40
+plotly
+scikit-learn
+xgboost
+lightgbm
+ta
+prophet
+feedparser
+textblob
+requests
+openai
