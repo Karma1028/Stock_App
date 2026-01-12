@@ -151,16 +151,22 @@ def main():
     
     with st.spinner("Curating latest headlines..."):
         # Combine news from a couple of major movers
-        n1_df = ns.fetch_news_history("RELIANCE.NS", days=3)
-        n2_df = ns.fetch_news_history("HDFCBANK.NS", days=3)
-        
-        # Concatenate and sort
-        combined_news = pd.concat([n1_df, n2_df], ignore_index=True)
-        if not combined_news.empty:
-            combined_news = combined_news.sort_values('date', ascending=False).head(6)
-            raw_news = combined_news.to_dict('records')
-        else:
-            raw_news = []
+        # CACHE THIS to improve performance
+        @st.cache_data(ttl=1800) # Cache for 30 mins
+        def get_cached_news():
+            _ns = NewsScraper()
+            n1_df = _ns.fetch_news_history("RELIANCE.NS", days=2) # Reduced days for speed
+            n2_df = _ns.fetch_news_history("HDFCBANK.NS", days=2)
+            
+            # Concatenate and sort
+            combined_news = pd.concat([n1_df, n2_df], ignore_index=True)
+            if not combined_news.empty:
+                combined_news = combined_news.sort_values('date', ascending=False).head(6)
+                return combined_news.to_dict('records')
+            return []
+
+        raw_news = get_cached_news()
+
         
         if not raw_news:
             st.info("No major market news found right now.")

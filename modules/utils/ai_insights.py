@@ -29,7 +29,7 @@ def _get_client():
         api_key=api_key,
     )
 
-def _call_ai_api(messages, model="google/gemma-3-27b-it:free"):
+def _call_ai_api(messages, model="google/gemini-2.0-flash-exp:free"):
     if OpenAI is None:
         return "⚠️ OpenAI module not found. Please install it to use AI features."
         
@@ -48,7 +48,7 @@ def _call_ai_api(messages, model="google/gemma-3-27b-it:free"):
     except Exception as e:
         return f"❌ Error calling AI API: {e}"
 
-def generate_company_summary(symbol, model="google/gemma-3-27b-it:free"):
+def generate_company_summary(symbol, model="google/gemini-2.0-flash-exp:free"):
     """
     Generates a professional executive summary for a company using the Magic Formula Prompting.
     """
@@ -75,7 +75,7 @@ def generate_company_summary(symbol, model="google/gemma-3-27b-it:free"):
     messages = [{"role": "user", "content": prompt}]
     return _call_ai_api(messages, model)
 
-def get_ai_insights(symbol, data_summary, model="google/gemma-3-27b-it:free"):
+def get_ai_insights(symbol, data_summary, model="google/gemini-2.0-flash-exp:free"):
     """
     Generates technical and sentimental insights.
     """
@@ -97,7 +97,7 @@ def get_ai_insights(symbol, data_summary, model="google/gemma-3-27b-it:free"):
     messages = [{"role": "user", "content": prompt}]
     return _call_ai_api(messages, model)
 
-def generate_investment_plan(amount, duration_years, expected_return, risk_profile, market_context, model="google/gemma-3-27b-it:free"):
+def generate_investment_plan(amount, duration_years, expected_return, risk_profile, market_context, model="google/gemini-2.0-flash-exp:free"):
     """
     Generates a personalized investment plan.
     """
@@ -134,7 +134,7 @@ def generate_investment_plan(amount, duration_years, expected_return, risk_profi
     messages = [{"role": "user", "content": prompt}]
     return _call_ai_api(messages, model)
 
-def generate_quant_investment_plan(json_payload, model="google/gemma-3-27b-it:free"):
+def generate_quant_investment_plan(json_payload, model="google/gemini-2.0-flash-exp:free"):
     """
     Generates a structured Investment Report based on Quant Engine's output.
     Uses AI to enhance the summary if available, otherwise falls back to template.
@@ -203,7 +203,7 @@ def generate_quant_investment_plan(json_payload, model="google/gemma-3-27b-it:fr
 
     return text
 
-def analyze_portfolio(portfolio_data, model="google/gemma-3-27b-it:free"):
+def analyze_portfolio(portfolio_data, model="google/gemini-2.0-flash-exp:free"):
     """
     Analyzes a user-created portfolio for risk, diversification, and quality.
     """

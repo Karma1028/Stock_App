@@ -24,11 +24,18 @@ def show_sidebar():
     ai_model = st.sidebar.selectbox(
         "Select AI Model",
         [
+            "google/gemini-2.0-flash-exp:free",
+            "nvidia/nemotron-3-nano-30b-a3b:free",
+            "alibaba/tongyi-deepresearch-30b-a3b:free",
+            "arcee-ai/trinity-mini:free",
+            "qwen/qwen3-4b:free",
+            "nvidia/nemotron-nano-12b-v2-vl:free",
+            "xiaomi/mimo-v2-flash:free",
+            "google/gemma-3-27b-it:free",
             "tngtech/deepseek-r1t2-chimera:free",
             "tngtech/deepseek-r1t-chimera:free",
             "z-ai/glm-4.5-air:free",
             "amazon/nova-2-lite-v1:free",
-            "google/gemma-3-27b-it:free",
             "openai/gpt-oss-20b:free"
         ],
         index=0

@@ -12,3 +12,5 @@ feedparser
 textblob
 requests
 openai
+fastapi
+uvicorn
