@@ -37,6 +37,18 @@ def get_dashboard_data():
             "gainers": gainers,
             "stock_count": stock_count
         }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/stocks")
+def get_stock_list():
+    dm = StockDataManager()
+    try:
+        stocks = dm.get_stock_list()
+        # Clean up filtered out None or empty
+        stocks = [s for s in stocks if s]
+        return {"stocks": stocks}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -95,6 +107,143 @@ def get_news(limit: int = 6):
     except Exception as e:
         print(f"News error: {e}")
         return []
+
+
+@app.post("/api/ai/summary")
+def get_ai_summary(payload: dict):
+    symbol = payload.get("symbol")
+    model = payload.get("model", "google/gemini-2.0-flash-exp:free")
+    if not symbol:
+        raise HTTPException(status_code=400, detail="Symbol is required")
+    
+    from modules.utils.ai_insights import generate_company_summary
+    try:
+        summary = generate_company_summary(symbol, model=model)
+        return {"summary": summary}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/portfolio/backtest")
+def run_backtest(payload: dict):
+    from modules.utils.quant import QuantEngine
+    dm = StockDataManager()
+    qe = QuantEngine(dm)
+    
+    try:
+        result = qe.run_pipeline(payload)
+        if "error" in result:
+             raise HTTPException(status_code=500, detail=result["error"])
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@app.post("/api/investment-plan")
+def get_investment_plan(payload: dict):
+    from modules.utils.ai_insights import generate_investment_plan
+    try:
+        plan = generate_investment_plan(
+            amount=payload.get("amount"),
+            duration_years=payload.get("duration"),
+            expected_return=payload.get("expected_return"),
+            risk_profile=payload.get("risk_profile"),
+            market_context=payload.get("market_context", "Indian markets are trading at all-time highs with high volatility."),
+            model=payload.get("model", "google/gemini-2.0-flash-exp:free")
+        )
+        return {"plan": plan}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/stock/{symbol}/predict")
+def get_stock_prediction(symbol: str, days: int = 30):
+    from modules.ml.engine import MLEngine
+    from modules.ml.features import FeatureEngineer
+    from modules.ml.prediction import StockPredictor
+    
+    dm = StockDataManager()
+    fe = FeatureEngineer()
+    ml = MLEngine()
+    sp = StockPredictor()
+    ns = NewsScraper()
+    
+    try:
+        # 1. Fetch Data
+        df = dm.get_cached_data([symbol], period="2y")
+        if df.empty:
+             raise HTTPException(status_code=404, detail="No data found for prediction")
+        
+        # Handle MultiIndex
+        if isinstance(df.columns, pd.MultiIndex):
+            if symbol in df.columns: df = df[symbol]
+            elif df.columns.nlevels > 1 and symbol in df.columns.get_level_values(1): df = df.xs(symbol, axis=1, level=1)
+            elif 'Close' in df.columns.get_level_values(0): df.columns = df.columns.get_level_values(0)
+
+        # 2. Features & KPI Scores
+        # Fetch sentiment
+        news_df = ns.fetch_news_history(symbol, days=30)
+        sentiment_daily = pd.DataFrame()
+        if not news_df.empty:
+            news_df = ns.analyze_sentiment(news_df)
+            df_sent = news_df.copy()
+            df_sent['date_only'] = df_sent['date'].dt.date
+            sentiment_daily = df_sent.groupby('date_only')['sentiment'].agg(['mean', 'count', 'std']).reset_index()
+            sentiment_daily = sentiment_daily.rename(columns={'mean': 'sentiment_score', 'count': 'news_count', 'std': 'sentiment_volatility'}).fillna(0)
+        
+        df_features = fe.compute_all_features(df, sentiment_daily)
+        if not sentiment_daily.empty:
+            df_features = fe.merge_sentiment(df_features, sentiment_daily)
+            
+        # Predict Score
+        preds = None
+        try:
+             # Try global model first, ideally we shouldn't train on every request but for demo/completeness:
+             ml_global = MLEngine(model_name="xgb_model_global.pkl")
+             if ml_global.load_model():
+                 preds = ml_global.predict(df_features)
+             else:
+                 # Minimal training if no model (fallback)
+                 ml.train_model(df_features, model_type="xgboost")
+                 preds = ml.predict(df_features)
+        except Exception:
+             pass 
+
+        kpi = {}
+        if preds is not None:
+            kpi = ml.calculate_combined_score(df_features, preds)
+            
+        # 3. Forecast (Prophet)
+        forecast, _ = sp.train_and_predict(df.copy(), periods=days)
+        forecast_data = []
+        if forecast is not None:
+             # Filter for future only or include history? User wants chart. Return last 90 days + future.
+             last_date = df.index.max()
+             if last_date.tzinfo: last_date = last_date.tz_localize(None)
+             
+             # Convert ds to str
+             forecast['ds'] = forecast['ds'].astype(str)
+             forecast_data = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].to_dict('records')
+        
+        return {
+            "kpi": kpi,
+            "forecast": forecast_data
+        }
+
+    except Exception as e:
+        print(f"Prediction Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/portfolio/analyze")
+def analyze_custom_portfolio(payload: dict):
+    from modules.utils.ai_insights import analyze_portfolio
+    try:
+        analysis = analyze_portfolio(
+            portfolio_data=payload.get("portfolio"),
+            model=payload.get("model", "google/gemini-2.0-flash-exp:free")
+        )
+        return {"analysis": analysis}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

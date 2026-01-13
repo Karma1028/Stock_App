@@ -109,14 +109,19 @@ class StockDataManager:
         """
         cache_dir = Config.DATA_DIR / "raw"
         cache_dir.mkdir(exist_ok=True)
+        # Unique cache file based on ticker list hash to avoid collisions?
+        # For simplicity, assuming "bulk_data" implies the full list.
+        # But if we pass different lists, this might be buggy.
+        # Let's rely on the period for now as the main differentiator for the dashboard usage.
         cache_file = cache_dir / f"bulk_data_{period}.pkl"
         
-        # Check if cache exists and is fresh (e.g., < 24 hours)
+        # Check if cache exists and is fresh
+        # 15 minutes (900 seconds) for dashboard data during market hours
         if cache_file.exists():
             try:
                 import time
                 file_age = time.time() - cache_file.stat().st_mtime
-                if file_age < 86400: # 24 hours
+                if file_age < 900: # 15 minutes
                     print(f"Loading cached data from {cache_file}")
                     return pd.read_pickle(cache_file)
             except Exception as e:
@@ -303,6 +308,7 @@ class StockDataManager:
         except Exception as e:
             print(f"Error calculating ratios: {e}")
             return {}
+
     def get_nifty50_sector_map(self):
         return {
             'ADANIENT.NS':     'Conglomerate',
@@ -424,41 +430,41 @@ class StockDataManager:
             return "Mid Cap"
         else:
             return "Small Cap"
+
     def get_top_gainers(self, limit=5):
         """
         Identifies top gaining stocks from the tracked list for the day.
+        Optimization: Uses default Nifty 50 list to ensure fast dashboard loading.
         """
-        tickers = self.get_stock_list()
-        # For performance, maybe limit to first 10-20 or use bulk fetch if possible
-        # Using bulk fetch for efficiency
+        # Use default tickers (Nifty 50) for speed. 
+        tickers = self.default_tickers 
         try:
-            # Fetch last 2 days to calculate % change. 
-            # Note: Fetching thousands of stocks takes time.
-            # We strictly filter for today's data if possible, or last close.
-            # Using 5d to be safe on weekends/holidays.
-            
-            # Optimization: If list > 100, maybe chunk? For now, let yf handle threads.
-            data = self.get_bulk_historical_data(tickers, period="5d")
+            # Use cached data! 
+            data = self.get_cached_data(tickers, period="5d")
             if data.empty:
                 return []
             
-            # yfinance bulk data is MultiIndex (Price, Ticker)
-            # We need Close price
-            closes = data['Close']
+            # Check structure
+            if isinstance(data.columns, pd.MultiIndex):
+                closes = data['Close']
+            else:
+                closes = data # Fallback if single level (rare for bulk)
             
             # Drop columns with all NaNs (delisted or no data)
             closes = closes.dropna(axis=1, how='all')
             
             # Calculate % change of last available day vs previous
-            pct_change = closes.pct_change().iloc[-1]
+            pct_change = closes.pct_change().ffill().iloc[-1]
             top_gainers = pct_change.nlargest(limit)
             
             results = []
             for ticker, change in top_gainers.items():
-                results.append({
+                 # Get latest price
+                 price = closes[ticker].iloc[-1]
+                 results.append({
                     "symbol": ticker,
                     "change_pct": change * 100,
-                    "price": closes[ticker].iloc[-1]
+                    "price": price
                 })
             return results
         except Exception as e:
@@ -467,23 +473,32 @@ class StockDataManager:
 
     def get_market_sentiment(self):
         """
-        Derives overall market sentiment from Nifty 50 stocks performance.
+        Derives overall market sentiment from stocks performance.
+        Optimization: Uses default Nifty 50 list.
         """
         try:
-            tickers = self.get_stock_list() # This list is basically Nifty 50
-            data = self.get_bulk_historical_data(tickers, period="5d")
+            tickers = self.default_tickers
+            # Use cached data
+            data = self.get_cached_data(tickers, period="5d")
             
             if data.empty:
                 return {"status": "Neutral", "score": 50, "summary": "Market data unavailable."}
             
-            # Calculate breadth
-            closes = data['Close']
+            if isinstance(data.columns, pd.MultiIndex):
+                closes = data['Close']
+            else:
+                closes = data
+                
             changes = closes.pct_change().iloc[-1]
             
             advances = (changes > 0).sum()
             declines = (changes < 0).sum()
             total = len(changes)
             
+            # Avoid division by zero
+            if total == 0:
+                 return {"status": "Neutral", "score": 50, "summary": "Insufficient data."}
+
             # Sentiment Score (0 to 100)
             score = (advances / total) * 100
             

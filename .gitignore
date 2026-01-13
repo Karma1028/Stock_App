@@ -43,3 +43,4 @@ frontend/build/
 data/raw/
 data/cache/
 *.log
+node_modules
