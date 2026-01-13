@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { BarChart3, Search, Bell, Menu, X, TrendingUp, Briefcase, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import NavLinkItem from "./NavLinkItem";
+import { SettingsSidebar } from "./SettingsSidebar";
 import { cn } from "@/lib/utils";
 
 // Nifty 50 stocks for search
@@ -86,7 +87,7 @@ const Header = () => {
                 className="w-full pl-10 pr-4 py-2.5 bg-secondary/50 border border-border/50 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
               />
             </div>
-            
+
             {/* Search dropdown */}
             {showSearch && filteredStocks.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-xl overflow-hidden z-50">
@@ -113,10 +114,11 @@ const Header = () => {
               <Bell className="w-5 h-5 text-muted-foreground" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
             </button>
+            <SettingsSidebar />
             <div className="hidden sm:flex w-9 h-9 rounded-lg bg-primary/20 items-center justify-center">
               <span className="text-sm font-bold text-primary">JD</span>
             </div>
-            
+
             {/* Mobile menu button */}
             <Button
               variant="ghost"
@@ -141,7 +143,7 @@ const Header = () => {
             <NavLinkItem to="/planner" icon={Briefcase} onClick={() => setMobileMenuOpen(false)}>
               Planner
             </NavLinkItem>
-            
+
             {/* Mobile Search */}
             <div className="relative mt-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

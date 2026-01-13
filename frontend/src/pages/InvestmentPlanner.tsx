@@ -16,6 +16,8 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import StockSearch from "@/components/investment-planner/StockSearch";
 import PortfolioAnalysis from "@/components/investment-planner/PortfolioAnalysis";
 
+import { useSettingsStore } from '@/store/settingsStore';
+
 const InvestmentPlanner = () => {
   const [amount, setAmount] = useState(100000);
   const [duration, setDuration] = useState(5);
@@ -23,6 +25,7 @@ const InvestmentPlanner = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { aiModel } = useSettingsStore();
 
   const riskLabel = risk <= 25 ? 'Conservative' : risk <= 50 ? 'Moderate' : risk <= 75 ? 'Aggressive' : 'Very Aggressive';
 
@@ -37,7 +40,8 @@ const InvestmentPlanner = () => {
         duration_years: duration,
         risk_profile: riskLabel.toLowerCase() as any,
         type: 'one-time', // Default to one-time for now
-        expected_return: 12 // Default
+        expected_return: 12, // Default
+        model: aiModel
       });
       setResult(data);
     } catch (err) {

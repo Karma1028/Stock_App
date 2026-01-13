@@ -9,6 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getAISummary } from '@/services/api';
 import { AISummary } from '@/types/stock';
 
+import { useSettingsStore } from '@/store/settingsStore';
+
 interface AIAnalysisProps {
     symbol: string;
 }
@@ -17,13 +19,14 @@ const AIAnalysis = ({ symbol }: AIAnalysisProps) => {
     const [data, setData] = useState<AISummary | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [model, setModel] = useState("google/gemini-2.0-flash-exp:free");
+    const { aiModel } = useSettingsStore();
 
     const fetchAnalysis = async () => {
         setLoading(true);
         setError(null);
         try {
-            const result = await getAISummary(symbol);
+            // Updated to pass model:
+            const result = await getAISummary(symbol, aiModel);
             setData(result);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to generate analysis');

@@ -67,10 +67,11 @@ export async function getNews(limit: number = 10): Promise<NewsItem[]> {
 }
 
 // AI Summary API
-export async function getAISummary(symbol: string): Promise<AISummary> {
+// AI Summary API
+export async function getAISummary(symbol: string, model?: string): Promise<AISummary> {
   return fetchApi<AISummary>('/api/ai/summary', {
     method: 'POST',
-    body: JSON.stringify({ symbol }),
+    body: JSON.stringify({ symbol, model }),
   });
 }
 

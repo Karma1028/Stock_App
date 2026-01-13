@@ -1,58 +1,24 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-import sys
-import os
-import pandas as pd
-
-# Add parent directory to path to import modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+from fastapi import APIRouter, HTTPException
 from modules.data.manager import StockDataManager
 from modules.data.scrapers.news_scraper import NewsScraper
+from modules.ml.engine import MLEngine
+from modules.ml.features import FeatureEngineer
+from modules.ml.prediction import StockPredictor
+import pandas as pd
 
-app = FastAPI(title="Stock App API", version="1.0.0")
+router = APIRouter()
 
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], # Allow all for dev
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/health")
-def health_check():
-    return {"status": "ok", "app": "Stock App API"}
-
-@app.get("/api/dashboard")
-def get_dashboard_data():
-    dm = StockDataManager()
-    try:
-        sentiment = dm.get_market_sentiment()
-        gainers = dm.get_top_gainers(limit=5)
-        stock_count = len(dm.get_stock_list())
-        return {
-            "sentiment": sentiment,
-            "gainers": gainers,
-            "stock_count": stock_count
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/stocks")
+@router.get("/stocks")
 def get_stock_list():
     dm = StockDataManager()
     try:
         stocks = dm.get_stock_list()
-        # Clean up filtered out None or empty
         stocks = [s for s in stocks if s]
         return {"stocks": stocks}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/stock/{symbol}")
+@router.get("/stock/{symbol}")
 def get_stock_details(symbol: str):
     dm = StockDataManager()
     try:
@@ -63,7 +29,7 @@ def get_stock_details(symbol: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/stock/{symbol}/history")
+@router.get("/stock/{symbol}/history")
 def get_stock_history(symbol: str, period: str = "1y"):
     dm = StockDataManager()
     try:
@@ -71,7 +37,6 @@ def get_stock_history(symbol: str, period: str = "1y"):
         if df.empty:
              return []
         
-        # Handle MultiIndex if present
         if isinstance(df.columns, pd.MultiIndex):
             if symbol in df.columns:
                 df = df[symbol]
@@ -80,27 +45,22 @@ def get_stock_history(symbol: str, period: str = "1y"):
             elif 'Close' in df.columns.get_level_values(0):
                  df.columns = df.columns.get_level_values(0)
         
-        # Reset index to make Date a column
         df_reset = df.reset_index()
-        # Convert Timestamp to str
         df_reset['Date'] = df_reset['Date'].astype(str)
-        # Convert to dict
         return df_reset.to_dict(orient="records")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/news")
+@router.get("/news")
 def get_news(limit: int = 6):
     ns = NewsScraper()
     try:
-        # Fetch news for generic major stocks for dashboard
         n1_df = ns.fetch_news_history("RELIANCE.NS", days=2)
         n2_df = ns.fetch_news_history("HDFCBANK.NS", days=2)
         combined_news = pd.concat([n1_df, n2_df], ignore_index=True)
         
         if not combined_news.empty:
             combined_news = combined_news.sort_values('date', ascending=False).head(limit)
-            # Serialize date
             combined_news['date'] = combined_news['date'].astype(str)
             return combined_news.to_dict('records')
         return []
@@ -108,59 +68,8 @@ def get_news(limit: int = 6):
         print(f"News error: {e}")
         return []
 
-
-@app.post("/api/ai/summary")
-def get_ai_summary(payload: dict):
-    symbol = payload.get("symbol")
-    model = payload.get("model", "google/gemini-2.0-flash-exp:free")
-    if not symbol:
-        raise HTTPException(status_code=400, detail="Symbol is required")
-    
-    from modules.utils.ai_insights import generate_company_summary
-    try:
-        summary = generate_company_summary(symbol, model=model)
-        return {"summary": summary}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/portfolio/backtest")
-def run_backtest(payload: dict):
-    from modules.utils.quant import QuantEngine
-    dm = StockDataManager()
-    qe = QuantEngine(dm)
-    
-    try:
-        result = qe.run_pipeline(payload)
-        if "error" in result:
-             raise HTTPException(status_code=500, detail=result["error"])
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-
-@app.post("/api/investment-plan")
-def get_investment_plan(payload: dict):
-    from modules.utils.ai_insights import generate_investment_plan
-    try:
-        plan = generate_investment_plan(
-            amount=payload.get("amount"),
-            duration_years=payload.get("duration"),
-            expected_return=payload.get("expected_return"),
-            risk_profile=payload.get("risk_profile"),
-            market_context=payload.get("market_context", "Indian markets are trading at all-time highs with high volatility."),
-            model=payload.get("model", "google/gemini-2.0-flash-exp:free")
-        )
-        return {"plan": plan}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/stock/{symbol}/predict")
+@router.get("/stock/{symbol}/predict")
 def get_stock_prediction(symbol: str, days: int = 30):
-    from modules.ml.engine import MLEngine
-    from modules.ml.features import FeatureEngineer
-    from modules.ml.prediction import StockPredictor
-    
     dm = StockDataManager()
     fe = FeatureEngineer()
     ml = MLEngine()
@@ -197,7 +106,7 @@ def get_stock_prediction(symbol: str, days: int = 30):
         # Predict Score
         preds = None
         try:
-             # Try global model first, ideally we shouldn't train on every request but for demo/completeness:
+             # Try global model first
              ml_global = MLEngine(model_name="xgb_model_global.pkl")
              if ml_global.load_model():
                  preds = ml_global.predict(df_features)
@@ -216,11 +125,8 @@ def get_stock_prediction(symbol: str, days: int = 30):
         forecast, _ = sp.train_and_predict(df.copy(), periods=days)
         forecast_data = []
         if forecast is not None:
-             # Filter for future only or include history? User wants chart. Return last 90 days + future.
              last_date = df.index.max()
              if last_date.tzinfo: last_date = last_date.tz_localize(None)
-             
-             # Convert ds to str
              forecast['ds'] = forecast['ds'].astype(str)
              forecast_data = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].to_dict('records')
         
@@ -232,19 +138,3 @@ def get_stock_prediction(symbol: str, days: int = 30):
     except Exception as e:
         print(f"Prediction Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/portfolio/analyze")
-def analyze_custom_portfolio(payload: dict):
-    from modules.utils.ai_insights import analyze_portfolio
-    try:
-        analysis = analyze_portfolio(
-            portfolio_data=payload.get("portfolio"),
-            model=payload.get("model", "google/gemini-2.0-flash-exp:free")
-        )
-        return {"analysis": analysis}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

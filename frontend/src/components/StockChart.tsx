@@ -39,9 +39,10 @@ const periodLabels: Record<string, string> = {
   "5y": "5Y"
 };
 
+import { useSettingsStore } from "@/store/settingsStore";
+
 const StockChart = ({ symbol, data, period, onPeriodChange, isLoading, showTechnicals: initialShowTechnicals = false }: StockChartProps) => {
-  const [showSMA, setShowSMA] = useState(true);
-  const [showBB, setShowBB] = useState(false);
+  const { showSMA50, showSMA200, showBollingerBands } = useSettingsStore();
   const [showVolume, setShowVolume] = useState(true);
 
   const latestPrice = data[data.length - 1]?.Close || 0;
@@ -92,7 +93,7 @@ const StockChart = ({ symbol, data, period, onPeriodChange, isLoading, showTechn
               </span>
             </div>
           </div>
-          
+
           <div className="flex gap-1 bg-secondary/50 p-1 rounded-lg">
             {periods.map((p) => (
               <button
@@ -112,24 +113,9 @@ const StockChart = ({ symbol, data, period, onPeriodChange, isLoading, showTechn
         </div>
 
         {/* Technical Indicators Toggle */}
-        {hasTechnicals && (
-          <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-border/50">
-            <div className="flex items-center gap-2">
-              <Switch id="sma" checked={showSMA} onCheckedChange={setShowSMA} />
-              <Label htmlFor="sma" className="text-xs text-muted-foreground">SMA 50/200</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch id="bb" checked={showBB} onCheckedChange={setShowBB} />
-              <Label htmlFor="bb" className="text-xs text-muted-foreground">Bollinger Bands</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch id="volume" checked={showVolume} onCheckedChange={setShowVolume} />
-              <Label htmlFor="volume" className="text-xs text-muted-foreground">Volume</Label>
-            </div>
-          </div>
-        )}
+
       </GlassCardHeader>
-      
+
       <GlassCardContent className={cn("h-64", hasTechnicals && showVolume && "h-80")}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -192,9 +178,9 @@ const StockChart = ({ symbol, data, period, onPeriodChange, isLoading, showTechn
                 return [`₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, name];
               }}
             />
-            
+
             {/* Bollinger Bands */}
-            {showBB && hasTechnicals && (
+            {showBollingerBands && hasTechnicals && (
               <>
                 <Line
                   yAxisId="price"
@@ -218,7 +204,7 @@ const StockChart = ({ symbol, data, period, onPeriodChange, isLoading, showTechn
                 />
               </>
             )}
-            
+
             {/* Volume bars */}
             {showVolume && (
               <Bar
@@ -228,7 +214,7 @@ const StockChart = ({ symbol, data, period, onPeriodChange, isLoading, showTechn
                 opacity={0.3}
               />
             )}
-            
+
             {/* Price area */}
             <Area
               yAxisId="price"
@@ -240,28 +226,32 @@ const StockChart = ({ symbol, data, period, onPeriodChange, isLoading, showTechn
               fill="url(#colorPrice)"
               name="Price"
             />
-            
+
             {/* SMAs */}
-            {showSMA && hasTechnicals && (
+            {hasTechnicals && (
               <>
-                <Line
-                  yAxisId="price"
-                  type="monotone"
-                  dataKey="SMA_50"
-                  stroke="hsl(30, 100%, 50%)"
-                  strokeWidth={1.5}
-                  dot={false}
-                  name="SMA 50"
-                />
-                <Line
-                  yAxisId="price"
-                  type="monotone"
-                  dataKey="SMA_200"
-                  stroke="hsl(160, 100%, 40%)"
-                  strokeWidth={1.5}
-                  dot={false}
-                  name="SMA 200"
-                />
+                {showSMA50 && (
+                  <Line
+                    yAxisId="price"
+                    type="monotone"
+                    dataKey="SMA_50"
+                    stroke="hsl(30, 100%, 50%)"
+                    strokeWidth={1.5}
+                    dot={false}
+                    name="SMA 50"
+                  />
+                )}
+                {showSMA200 && (
+                  <Line
+                    yAxisId="price"
+                    type="monotone"
+                    dataKey="SMA_200"
+                    stroke="hsl(160, 100%, 40%)"
+                    strokeWidth={1.5}
+                    dot={false}
+                    name="SMA 200"
+                  />
+                )}
               </>
             )}
           </ComposedChart>
