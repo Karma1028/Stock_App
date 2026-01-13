@@ -26,16 +26,40 @@ def health_check():
     return {"status": "ok", "app": "Stock App API"}
 
 @app.get("/api/dashboard")
-def get_dashboard_data():
+def get_dashboard_data(symbols: str = None):
+    """
+    Get dashboard data.
+    If symbols parameter is provided (comma-separated), returns data for those stocks.
+    Otherwise returns default stocks (top gainers + market metrics).
+    """
     dm = StockDataManager()
     try:
+        # Get market sentiment
         sentiment = dm.get_market_sentiment()
-        gainers = dm.get_top_gainers(limit=5)
+        
+        # Get stock count
         stock_count = len(dm.get_stock_list())
+        
+        # Get top gainers (always show these)
+        gainers = dm.get_top_gainers(limit=5)
+        
+        # Get specific stocks if requested
+        selected_stocks = []
+        if symbols:
+            symbol_list = [s.strip() for s in symbols.split(',')]
+            for symbol in symbol_list[:10]:  # Limit to 10 stocks
+                try:
+                    stock_data = dm.get_live_data(symbol)
+                    if stock_data:
+                        selected_stocks.append(stock_data)
+                except Exception as e:
+                    print(f"Error fetching {symbol}: {e}")
+        
         return {
             "sentiment": sentiment,
             "gainers": gainers,
-            "stock_count": stock_count
+            "stock_count": stock_count,
+            "selected_stocks": selected_stocks
         }
 
     except Exception as e:

@@ -128,31 +128,41 @@ const StockSearch = () => {
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0">
+                    <PopoverContent className="w[300px] p-0">
                         <Command>
-                            <CommandInput placeholder="Search stock..." />
+                            <CommandInput placeholder="Search stock..." disabled={loading} />
                             <CommandList>
-                                <CommandEmpty>No stock found.</CommandEmpty>
-                                <CommandGroup className="max-h-[300px] overflow-y-auto">
-                                    {stocks.map((stock) => (
-                                        <CommandItem
-                                            key={stock}
-                                            value={stock}
-                                            onSelect={(currentValue) => {
-                                                setValue(currentValue === value ? "" : currentValue);
-                                                setOpen(false);
-                                            }}
-                                        >
-                                            <Check
-                                                className={cn(
-                                                    "mr-2 h-4 w-4",
-                                                    value === stock ? "opacity-100" : "opacity-0"
-                                                )}
-                                            />
-                                            {stock}
-                                        </CommandItem>
-                                    ))}
-                                </CommandGroup>
+                                {loading ? (
+                                    <div className="flex items-center justify-center py-6">
+                                        <Loader2 className="h-6 w-6 animate-spin" />
+                                    </div>
+                                ) : (
+                                    <>
+                                        <CommandEmpty>No stock found.</CommandEmpty>
+                                        <CommandGroup className="max-h-[300px] overflow-y-auto">
+                                            {stocks.map((stock) => (
+                                                <CommandItem
+                                                    key={stock}
+                                                    value={stock}
+                                                    onSelect={(currentValue) => {
+                                                        // Command component lowercases the value, so we need to find the original
+                                                        const selected = stocks.find(s => s.toLowerCase() === currentValue.toLowerCase()) || currentValue.toUpperCase();
+                                                        setValue(selected === value ? "" : selected);
+                                                        setOpen(false);
+                                                    }}
+                                                >
+                                                    <Check
+                                                        className={cn(
+                                                            "mr-2 h-4 w-4",
+                                                            value === stock ? "opacity-100" : "opacity-0"
+                                                        )}
+                                                    />
+                                                    {stock}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </>
+                                )}
                             </CommandList>
                         </Command>
                     </PopoverContent>

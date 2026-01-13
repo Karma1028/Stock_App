@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BarChart2, Activity, Layers, RefreshCw, Target, Clock } from "lucide-react";
 import Header from "@/components/Header";
 import SentimentCard from "@/components/SentimentCard";
@@ -6,6 +6,10 @@ import TopGainersCard from "@/components/TopGainersCard";
 import StockChart from "@/components/StockChart";
 import NewsCard from "@/components/NewsCard";
 import StatsCard from "@/components/StatsCard";
+import DashboardStockSelector from "@/components/dashboard/DashboardStockSelector";
+import StockCard from "@/components/dashboard/StockCard";
+import SectorHeatmap from "@/components/dashboard/SectorHeatmap";
+import MarketBreadth from "@/components/dashboard/MarketBreadth";
 import { useDashboard, useStockHistory, useNews, useHealthCheck } from "@/hooks/useStockData";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -70,10 +74,14 @@ const mockNews = [
 
 const Index = () => {
   const [chartPeriod, setChartPeriod] = useState("1y");
-  
+  const [selectedStocks, setSelectedStocks] = useState<string[]>(() => {
+    const saved = localStorage.getItem('dashboard_stocks');
+    return saved ? JSON.parse(saved) : ["RELIANCE.NS", "TCS.NS", "INFY.NS"];
+  });
+
   // API hooks
-  const { data: dashboardData, isLoading: dashboardLoading, error: dashboardError, refetch } = useDashboard();
-  const { data: chartData, isLoading: chartLoading } = useStockHistory("RELIANCE.NS", chartPeriod);
+  const { data: dashboardData, isLoading: dashboardLoading, error: dashboardError, refetch } = useDashboard(selectedStocks);
+  const { data: chartData, isLoading: chartLoading } = useStockHistory(selectedStocks[0] || "RELIANCE.NS", chartPeriod);
   const { data: newsData, isLoading: newsLoading } = useNews(4);
   const { data: health, isError: apiDown } = useHealthCheck();
 
@@ -159,12 +167,40 @@ const Index = () => {
           />
         </div>
 
+        {/* Stock Selector */}
+        <div className="mb-6">
+          <DashboardStockSelector
+            onSelectionChange={setSelectedStocks}
+            defaultStocks={selectedStocks}
+          />
+        </div>
+
+        {/* Selected Stocks Grid */}
+        {dashboardData?.selected_stocks && dashboardData.selected_stocks.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4">Your Watchlist</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              {dashboardData.selected_stocks.map((stock: any) => (
+                <StockCard
+                  key={stock.symbol}
+                  symbol={stock.symbol}
+                  current_price={stock.current_price}
+                  previous_close={stock.previous_close}
+                  market_cap={stock.market_cap}
+                  pe_ratio={stock.pe_ratio}
+                  isLoading={dashboardLoading}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Chart - Takes 2 columns */}
           <div className="lg:col-span-2">
             <StockChart
-              symbol="RELIANCE.NS"
+              symbol={selectedStocks[0] || "RELIANCE.NS"}
               data={chartDataFinal}
               period={chartPeriod}
               onPeriodChange={setChartPeriod}
@@ -183,10 +219,20 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Bottom Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <TopGainersCard gainers={gainers} isLoading={isLoading} />
+        {/* Sector Heatmap */}
+        <div className="mb-8">
+          <SectorHeatmap />
+        </div>
+
+        {/* Market Breadth & News Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <MarketBreadth isLoading={isLoading} />
           <NewsCard news={newsFinal} isLoading={newsLoading} />
+        </div>
+
+        {/* Bottom Grid */}
+        <div className="grid grid-cols-1 gap-6">
+          <TopGainersCard gainers={gainers} isLoading={isLoading} />
         </div>
 
         {/* Footer Note */}

@@ -12,11 +12,14 @@ import {
 } from '@/services/api';
 import type { InvestmentPlanParams } from '@/types/stock';
 
-// Dashboard hook with auto-refresh
-export function useDashboard(refetchInterval: number = 30000) {
+// Dashboard hook with auto-refresh and optional stock symbols
+export function useDashboard(symbols?: string[], refetchInterval: number = 30000) {
   return useQuery({
-    queryKey: ['dashboard'],
-    queryFn: getDashboard,
+    queryKey: ['dashboard', symbols],
+    queryFn: () => {
+      // Note: API doesn't actually use symbols yet, but this maintains compatibility
+      return getDashboard();
+    },
     refetchInterval,
     staleTime: 10000,
   });

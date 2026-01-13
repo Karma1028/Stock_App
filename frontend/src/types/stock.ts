@@ -4,6 +4,7 @@ export interface DashboardData {
   sentiment: SentimentData;
   gainers: Gainer[];
   stock_count: number;
+  selected_stocks?: StockDetails[];
 }
 
 export interface SentimentData {
