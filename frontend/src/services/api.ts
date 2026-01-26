@@ -7,6 +7,9 @@ import type {
   BacktestResult,
   InvestmentPlanParams,
   PredictionResponse,
+  FinancialsResponse,
+  RatioData,
+  SocialSentiment,
 } from '@/types/stock';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -59,6 +62,21 @@ export async function getStockNews(
   return fetchApi<NewsItem[]>(
     `/api/stock/${encodeURIComponent(symbol)}/news?days=${days}`
   );
+}
+
+// Financials API
+export async function getStockFinancials(symbol: string): Promise<FinancialsResponse> {
+  return fetchApi<FinancialsResponse>(`/api/stock/${encodeURIComponent(symbol)}/financials`);
+}
+
+// Ratios API
+export async function getStockRatios(symbol: string): Promise<RatioData> {
+  return fetchApi<RatioData>(`/api/stock/${encodeURIComponent(symbol)}/ratios`);
+}
+
+// Social Sentiment API
+export async function getSocialSentiment(symbol: string): Promise<SocialSentiment> {
+  return fetchApi<SocialSentiment>(`/api/stock/${encodeURIComponent(symbol)}/sentiment/social`);
 }
 
 // General Market News API

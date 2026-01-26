@@ -11,8 +11,8 @@ interface NavLinkItemProps {
 
 const NavLinkItem = ({ to, icon: Icon, children, onClick }: NavLinkItemProps) => {
   const location = useLocation();
-  const isActive = location.pathname === to || 
-    (to.startsWith('/stock/') && location.pathname.startsWith('/stock/'));
+  const isActive = location.pathname === to ||
+    (to.startsWith('/analysis/') && location.pathname.startsWith('/analysis/'));
 
   return (
     <Link

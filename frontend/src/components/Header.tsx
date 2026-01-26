@@ -43,7 +43,7 @@ const Header = () => {
   ).slice(0, 5);
 
   const handleStockSelect = (symbol: string) => {
-    navigate(`/stock/${symbol}`);
+    navigate(`/analysis/${symbol}`);
     setSearchQuery("");
     setShowSearch(false);
   };
@@ -65,8 +65,8 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-1">
-            <NavLinkItem to="/" icon={LayoutDashboard}>Dashboard</NavLinkItem>
-            <NavLinkItem to="/stock/RELIANCE.NS" icon={TrendingUp}>Analysis</NavLinkItem>
+            <NavLinkItem to="/dashboard" icon={LayoutDashboard}>Dashboard</NavLinkItem>
+            <NavLinkItem to="/analysis/RELIANCE.NS" icon={TrendingUp}>Analysis</NavLinkItem>
             <NavLinkItem to="/planner" icon={Briefcase}>Planner</NavLinkItem>
           </nav>
 
@@ -134,10 +134,10 @@ const Header = () => {
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
           <nav className="lg:hidden mt-4 pt-4 border-t border-border/50 flex flex-col gap-2">
-            <NavLinkItem to="/" icon={LayoutDashboard} onClick={() => setMobileMenuOpen(false)}>
+            <NavLinkItem to="/dashboard" icon={LayoutDashboard} onClick={() => setMobileMenuOpen(false)}>
               Dashboard
             </NavLinkItem>
-            <NavLinkItem to="/stock/RELIANCE.NS" icon={TrendingUp} onClick={() => setMobileMenuOpen(false)}>
+            <NavLinkItem to="/analysis/RELIANCE.NS" icon={TrendingUp} onClick={() => setMobileMenuOpen(false)}>
               Analysis
             </NavLinkItem>
             <NavLinkItem to="/planner" icon={Briefcase} onClick={() => setMobileMenuOpen(false)}>

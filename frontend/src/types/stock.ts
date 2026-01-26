@@ -98,6 +98,7 @@ export interface InvestmentPlanParams {
   duration_years: number;
   risk_profile: 'conservative' | 'moderate' | 'aggressive' | 'very_aggressive';
   expected_return: number;
+  model?: string;
 }
 
 export interface KPIScores {
@@ -118,4 +119,49 @@ export interface ForecastPoint {
 export interface PredictionResponse {
   kpi: KPIScores;
   forecast: ForecastPoint[];
+}
+
+// Pro Features Types
+export interface FinancialsResponse {
+  balance_sheet: Record<string, any>[];
+  income_stmt: Record<string, any>[];
+  cashflow: Record<string, any>[];
+  quarterly_financials: Record<string, any>[];
+}
+
+export interface RatioData {
+  Valuation?: Record<string, number | string>;
+  Profitability?: Record<string, number | string>;
+  Liquidity_Debt?: Record<string, number | string>;
+  Dividends?: Record<string, number | string>;
+  [key: string]: Record<string, number | string> | undefined;
+}
+
+export interface SocialSentiment {
+  score: number;
+  status: string;
+  count: number;
+  latest_tweets: Array<{
+    text: string;
+    date: string;
+    likes: number;
+    retweets: number;
+    user: string;
+  }>;
+}
+
+export interface AIChart {
+  title: string;
+  type: 'bar' | 'line';
+  data: any[];
+  x_key: string;
+  y_keys: string[];
+}
+
+export interface AISummary {
+  summary: string;
+  metrics?: Record<string, string>;
+  charts?: AIChart[];
+  sentiment?: string;
+  technical_analysis?: string;
 }

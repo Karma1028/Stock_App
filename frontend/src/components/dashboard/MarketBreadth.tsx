@@ -1,11 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUp, ArrowDown, Activity } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface MarketBreadthProps {
     isLoading?: boolean;
 }
 
 const MarketBreadth = ({ isLoading = false }: MarketBreadthProps) => {
+    const navigate = useNavigate();
     // Mock data - in production, fetch from API
     const breadthData = {
         advances: 312,
@@ -26,13 +28,13 @@ const MarketBreadth = ({ isLoading = false }: MarketBreadthProps) => {
     const BreadthBar = ({ positive, negative }: { positive: number; negative: number }) => (
         <div className="w-full h-6 bg-secondary rounded-full overflow-hidden flex">
             <div
-                className="bg-green-500 flex items-center justify-center text-xs font-semibold text-white"
+                className="bg-green-500 flex items-center justify-center text-xs font-semibold text-white transition-all duration-500"
                 style={{ width: `${positive}%` }}
             >
                 {positive > 10 && `${positive.toFixed(0)}%`}
             </div>
             <div
-                className="bg-red-500 flex items-center justify-center text-xs font-semibold text-white"
+                className="bg-red-500 flex items-center justify-center text-xs font-semibold text-white transition-all duration-500"
                 style={{ width: `${negative}%` }}
             >
                 {negative > 10 && `${negative.toFixed(0)}%`}
@@ -42,7 +44,7 @@ const MarketBreadth = ({ isLoading = false }: MarketBreadthProps) => {
 
     if (isLoading) {
         return (
-            <Card>
+            <Card className="border-border/40">
                 <CardHeader>
                     <CardTitle>Market Breadth</CardTitle>
                 </CardHeader>
@@ -55,9 +57,12 @@ const MarketBreadth = ({ isLoading = false }: MarketBreadthProps) => {
     }
 
     return (
-        <Card>
+        <Card
+            className="group border-border/40 hover:scale-[1.01] hover:shadow-2xl transition-all duration-300 cursor-pointer"
+            onClick={() => navigate('/analysis')}
+        >
             <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 group-hover:text-primary transition-colors">
                     <Activity className="h-5 w-5" />
                     Market Breadth
                 </CardTitle>
@@ -125,10 +130,10 @@ const MarketBreadth = ({ isLoading = false }: MarketBreadthProps) => {
                         <span className="text-sm font-medium">Market Health</span>
                         <span
                             className={`px-3 py-1 rounded-full text-xs font-semibold ${breadthData.advanceDeclineRatio > 1.5
-                                    ? "bg-green-500/20 text-green-500"
-                                    : breadthData.advanceDeclineRatio > 1
-                                        ? "bg-yellow-500/20 text-yellow-500"
-                                        : "bg-red-500/20 text-red-500"
+                                ? "bg-green-500/20 text-green-500"
+                                : breadthData.advanceDeclineRatio > 1
+                                    ? "bg-yellow-500/20 text-yellow-500"
+                                    : "bg-red-500/20 text-red-500"
                                 }`}
                         >
                             {breadthData.advanceDeclineRatio > 1.5

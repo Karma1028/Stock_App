@@ -1,6 +1,7 @@
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/glass-card";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 interface SentimentCardProps {
   status: string;
@@ -10,6 +11,7 @@ interface SentimentCardProps {
 }
 
 const SentimentCard = ({ status, score, summary, isLoading }: SentimentCardProps) => {
+  const navigate = useNavigate();
   // Determine sentiment level based on score
   const getSentimentLevel = (score: number) => {
     if (score >= 60) return { status: 'Bullish', color: 'primary', icon: TrendingUp };
@@ -44,7 +46,11 @@ const SentimentCard = ({ status, score, summary, isLoading }: SentimentCardProps
   }
 
   return (
-    <GlassCard variant="elevated" className="relative overflow-hidden">
+    <GlassCard
+      variant="elevated"
+      className="relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
+      onClick={() => navigate('/analysis')}
+    >
       {/* Glow effect */}
       <div
         className={cn(
@@ -52,16 +58,16 @@ const SentimentCard = ({ status, score, summary, isLoading }: SentimentCardProps
           isBullish ? "bg-primary" : isBearish ? "bg-destructive" : "bg-warning"
         )}
       />
-      
+
       <GlassCardHeader>
         <div className="flex items-center justify-between">
           <GlassCardTitle>Market Sentiment</GlassCardTitle>
           <div
             className={cn(
               "flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium",
-              isBullish 
-                ? "bg-primary/20 text-primary" 
-                : isBearish 
+              isBullish
+                ? "bg-primary/20 text-primary"
+                : isBearish
                   ? "bg-destructive/20 text-destructive"
                   : "bg-warning/20 text-warning"
             )}
@@ -71,38 +77,38 @@ const SentimentCard = ({ status, score, summary, isLoading }: SentimentCardProps
           </div>
         </div>
       </GlassCardHeader>
-      
+
       <GlassCardContent>
         <div className="space-y-4">
           {/* Semi-circular gauge */}
           <div className="relative flex flex-col items-center py-4">
             {/* Gauge background */}
             <div className="relative w-40 h-20 overflow-hidden">
-              <div className="absolute inset-0 w-40 h-40 rounded-full border-8 border-secondary" 
-                   style={{ clipPath: 'polygon(0 0, 100% 0, 100% 50%, 0 50%)' }} />
-              
+              <div className="absolute inset-0 w-40 h-40 rounded-full border-8 border-secondary"
+                style={{ clipPath: 'polygon(0 0, 100% 0, 100% 50%, 0 50%)' }} />
+
               {/* Colored arc based on score */}
-              <div 
+              <div
                 className={cn(
                   "absolute inset-0 w-40 h-40 rounded-full border-8 transition-all duration-1000",
                   isBullish ? "border-primary" : isBearish ? "border-destructive" : "border-warning"
                 )}
-                style={{ 
+                style={{
                   clipPath: 'polygon(0 0, 100% 0, 100% 50%, 0 50%)',
                   transform: `rotate(${gaugeRotation - 90}deg)`,
                   transformOrigin: 'center center'
-                }} 
+                }}
               />
-              
+
               {/* Needle */}
-              <div 
+              <div
                 className="absolute bottom-0 left-1/2 w-1 h-16 bg-foreground rounded-full origin-bottom transition-transform duration-1000"
                 style={{ transform: `translateX(-50%) rotate(${gaugeRotation}deg)` }}
               >
                 <div className="w-3 h-3 bg-foreground rounded-full absolute -top-1 left-1/2 -translate-x-1/2" />
               </div>
             </div>
-            
+
             {/* Score display */}
             <div className={cn(
               "text-3xl font-bold font-mono mt-2",
@@ -110,14 +116,14 @@ const SentimentCard = ({ status, score, summary, isLoading }: SentimentCardProps
             )}>
               {score}%
             </div>
-            
+
             {/* Labels */}
             <div className="flex justify-between w-40 mt-1 text-xs text-muted-foreground">
               <span>Bearish</span>
               <span>Bullish</span>
             </div>
           </div>
-          
+
           {/* Summary text */}
           <p className="text-sm text-muted-foreground leading-relaxed text-center">{summary}</p>
         </div>

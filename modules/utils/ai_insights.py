@@ -2,9 +2,14 @@ import os
 import json
 import time
 import hashlib
-import streamlit as st
 from config import Config
 from modules.utils.cache_manager import get_cache
+
+# Optional Streamlit import for API key override in UI
+try:
+    import streamlit as st
+except ImportError:
+    st = None
 
 # Try to import OpenAI, handle absence gracefully
 import sys
@@ -14,9 +19,14 @@ except ImportError:
     OpenAI = None
 
 def _get_api_key():
-    # Check session state first (user override)
-    if 'OPENROUTER_API_KEY' in st.session_state:
-        return st.session_state['OPENROUTER_API_KEY']
+    # Check session state first (user override) if we are in a Streamlit context
+    if st is not None:
+        try:
+             if hasattr(st, 'session_state') and 'OPENROUTER_API_KEY' in st.session_state:
+                return st.session_state['OPENROUTER_API_KEY']
+        except Exception:
+            pass # Not in a streamlit runtime context
+            
     return Config.OPENROUTER_API_KEY
 
 def _get_client():
@@ -113,28 +123,46 @@ def _call_ai_api(messages, model="google/gemini-2.0-flash-exp:free", use_cache=T
     
     return f"❌ Error calling AI API after trying {len(models_to_try)} models. Last error: {last_error}\n\n💡 Please try again in a few minutes or add your own API key to avoid rate limits."
 
-def generate_company_summary(symbol, model="google/gemini-2.0-flash-exp:free"):
+def generate_company_summary(symbol, context_data=None, model="google/gemini-2.0-flash-exp:free"):
     """
     Generates a professional executive summary for a company using the Magic Formula Prompting.
     """
+    context_str = ""
+    if context_data:
+        context_str = f"**Real-Time Data (Use this strictly)**:\n{json.dumps(context_data, indent=2)}"
+
     prompt = f"""
-    **Persona**: You are a Senior Equity Analyst at a top-tier investment bank (e.g., Goldman Sachs).
+    **Persona**: You are a Senior Equity Analyst at a top-tier investment bank.
     
     **Task**: Provide a comprehensive Executive Summary for the company **{symbol}**.
     
-    **Context**: The user is a potential investor looking for a high-level overview to decide whether to research further.
+    {context_str}
     
-    **Constraints**:
-    - Be concise but insightful.
-    - Focus on Business Model, Competitive Advantage (Moat), and Recent Key Developments.
-    - Use professional financial terminology.
-    - No financial advice disclaimer needed as this is for educational purposes.
+    **Format**: RETURN ONLY RAW JSON (No Markdown backticks).
+    {{
+        "summary": "Concise business overview using the provided data. Mention P/E, Sector, and key strengths/risks. Use HTML <b> for emphasis.",
+        "metrics": {{
+            "Valuation (P/E)": "Value from data or Unknown",
+            "Profitability (ROE)": "Value from data or Unknown",
+            "Market Cap": "Value from data or Unknown"
+        }},
+        "charts": [
+            {{
+                "title": "Revenue vs Net Profit (Last 3 Years Est.)",
+                "type": "bar",
+                "data": [
+                    {{"label": "2022", "revenue": 1000, "profit": 200}},
+                    {{"label": "2023", "revenue": 1200, "profit": 250}},
+                    {{"label": "2024", "revenue": 1500, "profit": 350}}
+                ],
+                "x_key": "label",
+                "y_keys": ["revenue", "profit"]
+            }}
+        ],
+        "sentiment": "Bullish/Bearish/Neutral based on data"
+    }}
     
-    **Format**:
-    - **Business Overview**: What they do.
-    - **Economic Moat**: Why they win.
-    - **Key Risks**: What could go wrong.
-    - **Outlook**: Short sentence on future prospects.
+    **Context**: The user is a potential investor. If real data is provided in **Real-Time Data**, you MUST use it for the metrics and summary. Do not hallucinate numbers if data is present.
     """
     
     messages = [{"role": "user", "content": prompt}]
@@ -162,42 +190,68 @@ def get_ai_insights(symbol, data_summary, model="google/gemini-2.0-flash-exp:fre
     messages = [{"role": "user", "content": prompt}]
     return _call_ai_api(messages, model)
 
-def generate_investment_plan(amount, duration_years, expected_return, risk_profile, market_context, model="google/gemini-2.0-flash-exp:free"):
+def generate_investment_plan(amount, duration_years, expected_return, risk_profile, market_context, investment_type="Lumpsum", experience_level="Intermediate", model="xiaomi/mimo-v2-flash:free"):
     """
-    Generates a personalized investment plan.
+    Generates a personalized investment plan with robust error handling, returning JSON.
     """
-    prompt = f"""
-    **Persona**: You are a Certified Financial Planner (CFP) and Wealth Manager for High Net Worth Individuals.
-    
-    **Task**: Create a detailed Investment Plan for a client with the following profile:
-    - **Capital**: ₹{amount:,}
-    - **Horizon**: {duration_years} Years
-    - **Target Return**: {expected_return}% Annually
-    - **Risk Profile**: {risk_profile}
-    - **Current Market Context**: {market_context}
-    
-    **Constraints**:
-    - Suggest a robust Asset Allocation (Equity vs Debt vs Gold).
-    - Recommend sectors based on the current market context.
-    - Suggest an investment schedule (Lumpsum vs SIP).
-    - Be realistic about returns.
-    
-    **Format**:
-    ## 🎯 Investment Strategy Report
-    ### 1. Asset Allocation
-    (Table or List)
-    
-    ### 2. Sectoral Focus
-    (List of top 3 sectors)
-    
-    ### 3. Execution Plan
-    (Step-by-step guide)
-    
-    ### 4. Risk Management
-    (Hedging or diversification tips)
-    """
-    messages = [{"role": "user", "content": prompt}]
-    return _call_ai_api(messages, model)
+    try:
+        prompt = f"""
+        **Persona**: You are a Certified Financial Planner (CFP) and Wealth Manager for High Net Worth Individuals.
+        
+        **Client Profile**:
+        - **Capital**: ₹{amount:,}
+        - **Investment Type**: {investment_type}
+        - **Horizon**: {duration_years} Years
+        - **Target Return**: {expected_return}% Annually
+        - **Risk Profile**: {risk_profile}
+        - **Experience Level**: {experience_level}
+        
+        **Current Market Context**: {market_context}
+        
+        **Task**: Create a comprehensive Investment Plan in RAW JSON format.
+        
+        **Constraints**:
+        - Suggest a robust Asset Allocation (Equity vs Debt vs Gold vs Cash).
+        - Recommend specific sectors based on the current market.
+        - Calculate expected future value (FV).
+        - Be realistic about returns.
+        
+        **JSON Structure**:
+        {{
+            "executive_summary": "<h3>Overview</h3><p>...</p>",
+            "asset_allocation": [
+                {{"asset": "Equity", "percentage": 60, "amount": 60000, "reason": "..."}},
+                {{"asset": "Debt", "percentage": 30, "amount": 30000, "reason": "..."}}
+            ],
+            "sectors": [
+                {{"sector": "Banking", "weight": "High", "reason": "..."}}
+            ],
+            "strategy_steps": [
+                {{"step": "Phase 1", "action": "..."}}
+            ],
+            "risk_analysis": "...",
+            "future_value_projection": {{
+                "years": [2025, 2026, ...],
+                "values": [100000, 112000, ...]
+            }}
+        }}
+
+        Return ONLY valid JSON. No markdown formatting.
+        """
+        
+        messages = [{"role": "user", "content": prompt}]
+        response = _call_ai_api(messages, model)
+        
+        # Clean response
+        cleaned = response.replace('```json', '').replace('```', '').strip()
+        try:
+            return json.loads(cleaned)
+        except:
+            return {"error": "Failed to parse AI response", "raw": response}
+        
+    except Exception as e:
+        print(f"Error generating investment plan: {e}")
+        return {"error": str(e)}
 
 def generate_quant_investment_plan(json_payload, model="google/gemini-2.0-flash-exp:free"):
     """

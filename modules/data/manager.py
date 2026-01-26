@@ -214,99 +214,84 @@ class StockDataManager:
             "SMA_200": latest.get("trend_sma_slow")
         }
 
-    def get_balance_sheet(self, symbol):
+    def get_financials(self, symbol):
         """
-        Fetches the annual balance sheet.
-        """
-        symbol = self._get_valid_symbol(symbol)
-        try:
-            ticker = yf.Ticker(symbol)
-            bs = ticker.balance_sheet
-            if bs.empty:
-                return pd.DataFrame()
-            return bs
-        except Exception as e:
-            print(f"Error fetching balance sheet for {symbol}: {e}")
-            return pd.DataFrame()
-
-    def get_income_statement(self, symbol):
-        """
-        Fetches the annual income statement.
+        Fetches all financial statements and returns them as a dictionary.
         """
         symbol = self._get_valid_symbol(symbol)
         try:
             ticker = yf.Ticker(symbol)
-            ist = ticker.income_stmt
-            if ist.empty:
-                return pd.DataFrame()
-            return ist
+            return {
+                "balance_sheet": ticker.balance_sheet,
+                "income_stmt": ticker.income_stmt,
+                "cashflow": ticker.cashflow,
+                "quarterly_financials": ticker.quarterly_financials
+            }
         except Exception as e:
-            print(f"Error fetching income statement for {symbol}: {e}")
-            return pd.DataFrame()
-
-    def get_cash_flow(self, symbol):
-        """
-        Fetches the annual cash flow statement.
-        """
-        symbol = self._get_valid_symbol(symbol)
-        try:
-            ticker = yf.Ticker(symbol)
-            cf = ticker.cashflow
-            if cf.empty:
-                return pd.DataFrame()
-            return cf
-        except Exception as e:
-            print(f"Error fetching cash flow for {symbol}: {e}")
-            return pd.DataFrame()
-
-    def calculate_liquidity_ratios(self, balance_sheet):
-        """
-        Calculates liquidity ratios from the balance sheet.
-        """
-        if balance_sheet.empty:
+            print(f"Error fetching financials for {symbol}: {e}")
             return {}
-        
+
+    def get_key_ratios(self, symbol):
+        """
+        Calculates detailed financial ratios using latest available data.
+        Falls back to manual calculation if direct fields are missing.
+        """
         try:
-            # Helper to safely get value for the most recent year (first column)
-            def get_val(key_candidates):
-                if isinstance(key_candidates, str):
-                    key_candidates = [key_candidates]
-                
-                for key in key_candidates:
-                    if key in balance_sheet.index:
-                        return balance_sheet.loc[key].iloc[0]
-                
-                # Fuzzy search if exact match fails
-                for key in key_candidates:
-                    for idx in balance_sheet.index:
-                        if key.lower() in str(idx).lower():
-                            return balance_sheet.loc[idx].iloc[0]
-                return 0
-
-            current_assets = get_val(["Total Current Assets", "Current Assets"])
-            current_liabilities = get_val(["Total Current Liabilities", "Current Liabilities"])
-            inventory = get_val(["Inventory", "Inventories"])
-            total_assets = get_val(["Total Assets"])
-            total_equity = get_val(["Stockholders Equity", "Total Equity Gross Minority Interest", "Common Stock Equity"])
-            total_debt = get_val(["Total Debt", "Total Liabilities Net Minority Interest"]) # Fallback for debt proxy if needed
-
-            ratios = {}
+            ticker = yf.Ticker(self._get_valid_symbol(symbol))
+            info = ticker.info
             
-            # Current Ratio
-            if current_liabilities and current_liabilities != 0:
-                ratios["Current Ratio"] = current_assets / current_liabilities
+            # Helper to safely get
+            def g(key): return info.get(key)
             
-            # Quick Ratio
-            if current_liabilities and current_liabilities != 0:
-                ratios["Quick Ratio"] = (current_assets - inventory) / current_liabilities
+            price = g('currentPrice') or g('regularMarketPreviousClose') or 0
             
-            # Debt to Equity
-            if total_equity and total_equity != 0:
-                ratios["Debt/Equity"] = total_debt / total_equity
+            # Manual Calculations
+            # P/E
+            pe = g("trailingPE")
+            if not pe and price and g("trailingEps"):
+                 pe = price / g("trailingEps")
+            
+            # P/B
+            pb = g("priceToBook")
+            if not pb and price and g("bookValue"):
+                pb = price / g("bookValue")
+            
+            # Market Cap Calculation if missing (needed for some ratios)
+            mcap = g("marketCap")
+            
+            # Dividend Yield
+            div_yield = g("dividendYield")
+            if not div_yield and g("dividendRate") and price:
+                div_yield = g("dividendRate") / price
 
-            return ratios
+            return {
+                "Valuation": {
+                    "P/E": pe,
+                    "Forward P/E": g("forwardPE"),
+                    "P/B": pb,
+                    "PEG": g("pegRatio"),
+                    "EV/EBITDA": g("enterpriseToEbitda"),
+                },
+                "Profitability": {
+                    "ROE": g("returnOnEquity"),
+                    "ROA": g("returnOnAssets"),
+                    "Gross Margin": g("grossMargins"),
+                    "Operating Margin": g("operatingMargins"),
+                    "Net Margin": g("profitMargins"),
+                },
+                "Liquidity & Debt": {
+                    "Current Ratio": g("currentRatio"),
+                    "Quick Ratio": g("quickRatio"),
+                    "Debt/Equity": g("debtToEquity"),
+                },
+                "Dividends": {
+                    "Yield": div_yield,
+                    "Payout Ratio": g("payoutRatio"),
+                    "5Y Avg Yield": g("fiveYearAvgDividendYield"),
+                }
+            }
         except Exception as e:
-            print(f"Error calculating ratios: {e}")
+            print(f"Error calculating ratios Ratios: {e}")
             return {}
 
     def get_nifty50_sector_map(self):
@@ -373,6 +358,19 @@ class StockDataManager:
             return []
         except:
             return []
+
+    def get_twitter_sentiment(self, symbol):
+        """
+        Fetches sentiment from Twitter using Nitter.
+        """
+        try:
+            from modules.data.scrapers.twitter_scraper import TwitterScraper
+            ts = TwitterScraper()
+            return ts.get_sentiment_summary(symbol)
+        except Exception as e:
+            print(f"Error fetching twitter sentiment: {e}")
+            return {"score": 50, "status": "Neutral (No Data)", "count": 0}
+
     
     def get_stock_name_mapping(self):
         """

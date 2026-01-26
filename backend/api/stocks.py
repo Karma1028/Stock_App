@@ -138,3 +138,40 @@ def get_stock_prediction(symbol: str, days: int = 30):
     except Exception as e:
         print(f"Prediction Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/stock/{symbol}/financials")
+def get_stock_financials(symbol: str):
+    dm = StockDataManager()
+    try:
+        financials = dm.get_financials(symbol)
+        # Convert DataFrames to JSON-compatible dicts, replace NaN with None
+        result = {}
+        for key, df in financials.items():
+            if not df.empty:
+                # fillna with 0 or None for JSON serialization
+                result[key] = df.fillna(0).reset_index().to_dict(orient="records")
+            else:
+                result[key] = []
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/stock/{symbol}/ratios")
+def get_stock_ratios(symbol: str):
+    dm = StockDataManager()
+    try:
+        ratios = dm.get_key_ratios(symbol)
+        if not ratios:
+            return {}
+        return ratios
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/stock/{symbol}/sentiment/social")
+def get_social_sentiment(symbol: str):
+    dm = StockDataManager()
+    try:
+        sentiment = dm.get_twitter_sentiment(symbol)
+        return sentiment
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

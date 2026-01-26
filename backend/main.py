@@ -133,6 +133,19 @@ def get_news(limit: int = 6):
         return []
 
 
+@app.get("/api/stock/{symbol}/news")
+def get_stock_news_specific(symbol: str, days: int = 7):
+    ns = NewsScraper()
+    try:
+        df = ns.fetch_news_history(symbol, days=days)
+        if not df.empty:
+            df['date'] = df['date'].astype(str)
+            return df.to_dict('records')
+        return []
+    except Exception as e:
+        print(f"News error for {symbol}: {e}")
+        return []
+
 @app.post("/api/ai/summary")
 def get_ai_summary(payload: dict):
     symbol = payload.get("symbol")
@@ -141,9 +154,70 @@ def get_ai_summary(payload: dict):
         raise HTTPException(status_code=400, detail="Symbol is required")
     
     from modules.utils.ai_insights import generate_company_summary
+    dm = StockDataManager()
+    
     try:
-        summary = generate_company_summary(symbol, model=model)
-        return {"summary": summary}
+        # Fetch real data to result in grounded AI response
+        stock_data = dm.get_live_data(symbol) or {}
+        ratios = dm.get_key_ratios(symbol) or {}
+        
+        # Combine into a context dict
+        context_data = {
+            "profile": stock_data,
+            "ratios": ratios
+        }
+        
+        summary_str = generate_company_summary(symbol, context_data=context_data, model=model)
+        import json
+        try:
+             # Try to parse the AI response as JSON if possible
+             # It might be wrapped in markdown code blocks
+             clean_str = summary_str.replace('```json', '').replace('```', '').strip()
+             summary_data = json.loads(clean_str)
+             return summary_data # Return directly as JSON object
+        except json.JSONDecodeError:
+             return {"summary": summary_str}
+    except Exception as e:
+        print(f"AI Summary Error: {e}")
+        # Fallback to simple generation if data fetch fails
+        try:
+             from modules.utils.ai_insights import generate_company_summary
+             return {"summary": generate_company_summary(symbol, model=model)}
+        except:
+             raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/stock/{symbol}/financials")
+def get_stock_financials(symbol: str):
+    dm = StockDataManager()
+    try:
+        financials = dm.get_financials(symbol)
+        result = {}
+        for key, df in financials.items():
+            if not df.empty:
+                result[key] = df.fillna(0).reset_index().to_dict(orient="records")
+            else:
+                result[key] = []
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/stock/{symbol}/ratios")
+def get_stock_ratios(symbol: str):
+    dm = StockDataManager()
+    try:
+        ratios = dm.get_key_ratios(symbol)
+        if not ratios:
+            return {}
+        return ratios
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/stock/{symbol}/sentiment/social")
+def get_social_sentiment(symbol: str):
+    dm = StockDataManager()
+    try:
+        sentiment = dm.get_twitter_sentiment(symbol)
+        return sentiment
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

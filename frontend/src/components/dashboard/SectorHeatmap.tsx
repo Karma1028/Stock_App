@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface SectorData {
     name: string;
@@ -10,6 +11,7 @@ interface SectorData {
 }
 
 const SectorHeatmap = () => {
+    const navigate = useNavigate();
     const [sectors, setSectors] = useState<SectorData[]>([
         { name: "IT", change: 2.3, companies: 89, marketCap: 12500000 },
         { name: "Banking", change: 1.8, companies: 45, marketCap: 18500000 },
@@ -48,7 +50,7 @@ const SectorHeatmap = () => {
     };
 
     return (
-        <Card>
+        <Card className="border-border/40">
             <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                     <span>Sector Performance Heatmap</span>
@@ -62,7 +64,8 @@ const SectorHeatmap = () => {
                     {sectors.map((sector) => (
                         <div
                             key={sector.name}
-                            className={`relative p-4 rounded-lg border border-border/50 transition-all hover:scale-105 hover:shadow-lg cursor-pointer ${getColorIntensity(
+                            onClick={() => navigate(`/analysis?sector=${sector.name}`)}
+                            className={`group relative p-4 rounded-lg border border-white/10 transition-all duration-300 hover:scale-[1.05] hover:shadow-2xl hover:z-10 cursor-pointer ${getColorIntensity(
                                 sector.change
                             )}`}
                         >

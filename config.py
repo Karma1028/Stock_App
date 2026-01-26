@@ -25,11 +25,18 @@ class Config:
     API_CACHE_DIR = BASE_DIR / "data" / "api_cache"
     
     # Fallback AI Models (in order of preference)
+    # Fallback AI Models (in order of preference)
     AI_MODEL_FALLBACKS = [
-        "google/gemini-2.0-flash-exp:free",
-        "meta-llama/llama-3.2-3b-instruct:free",
-        "microsoft/phi-3-mini-128k-instruct:free",
-        "qwen/qwen-2-7b-instruct:free"
+        "xiaomi/mimo-v2-flash:free",
+        "mistralai/devstral-2512:free",
+        "tngtech/deepseek-r1t2-chimera:free",
+        "z-ai/glm-4.5-air:free",
+        "deepseek/deepseek-r1-0528:free",
+        "google/gemma-3-27b-it:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "nvidia/nemotron-3-nano-30b-a3b:free",
+        "openai/gpt-oss-120b:free",
+        "qwen/qwen3-next-80b-a3b-instruct:free"
     ]
     DEFAULT_AI_MODEL = AI_MODEL_FALLBACKS[0]
     

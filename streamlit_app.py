@@ -373,136 +373,140 @@ def render_stock_analysis():
 
     st.title(f"{live_data.get('long_name', selected_company)}")
     
-    c1, c2, c3, c4 = st.columns([1, 1, 1, 3])
-    c1.info(f"**Symbol:** {live_data.get('symbol')}")
-    c2.info(f"**Sector:** {live_data.get('sector', 'N/A')}")
-    c3.info(f"**Industry:** {live_data.get('industry', 'N/A')}")
+    # Tabbed Interface
+    tab_overview, tab_financials, tab_ratios, tab_news = st.tabs(["Overview", "Financials", "Ratios", "News & Social"])
     
-    curr_price = live_data.get('current_price') or 0
-    prev_close = live_data.get('previous_close') or 0
-    change = curr_price - prev_close
-    pct_change = (change / prev_close) * 100 if prev_close else 0
-    
-    m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("Current Price", format_currency(curr_price), f"{change:.2f} ({pct_change:.2f}%)")
-    m2.metric("Day High", format_currency(live_data.get('day_high') or 0))
-    m3.metric("Day Low", format_currency(live_data.get('day_low') or 0))
-    m4.metric("Volume", format_large_number(live_data.get('volume') or 0))
-    m5.metric("Market Cap", format_large_number(live_data.get('market_cap')))
+    with tab_overview:
+        c1, c2, c3, c4 = st.columns([1, 1, 1, 3])
+        c1.info(f"**Symbol:** {live_data.get('symbol')}")
+        c2.info(f"**Sector:** {live_data.get('sector', 'N/A')}")
+        c3.info(f"**Industry:** {live_data.get('industry', 'N/A')}")
+        
+        curr_price = live_data.get('current_price') or 0
+        prev_close = live_data.get('previous_close') or 0
+        change = curr_price - prev_close
+        pct_change = (change / prev_close) * 100 if prev_close else 0
+        
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.metric("Current Price", format_currency(curr_price), f"{change:.2f} ({pct_change:.2f}%)")
+        m2.metric("Day High", format_currency(live_data.get('day_high') or 0))
+        m3.metric("Day Low", format_currency(live_data.get('day_low') or 0))
+        m4.metric("Volume", format_large_number(live_data.get('volume') or 0))
+        m5.metric("Market Cap", format_large_number(live_data.get('market_cap')))
 
-    st.markdown("---")
-    
-    # Company Overview
-    st.subheader("🏢 Company Overview")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("P/E Ratio", f"{live_data.get('pe_ratio', 'N/A')}")
-    c2.metric("P/B Ratio", f"{live_data.get('price_to_book', 'N/A')}")
-    c3.metric("Dividend Yield", f"{live_data.get('dividend_yield', 0)*100:.2f}%" if live_data.get('dividend_yield') else "N/A")
-    c4.metric("EPS (TTM)", f"₹{live_data.get('trailing_eps', 'N/A')}")
-    
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Revenue", format_large_number(live_data.get('total_revenue')))
-    c2.metric("Profit Margins", f"{live_data.get('profit_margins', 0)*100:.2f}%" if live_data.get('profit_margins') else "N/A")
-    c3.metric("Return on Equity", f"{live_data.get('return_on_equity', 0)*100:.2f}%" if live_data.get('return_on_equity') else "N/A")
-    c4.metric("Debt/Equity", f"{live_data.get('debt_to_equity', 'N/A')}")
-    
-    st.markdown("### Business Summary")
-    st.write(live_data.get('long_business_summary', 'No summary available.'))
-    st.markdown("---")
+        st.markdown("---")
+        
+        # Price & Technical Analysis
+        st.subheader("Price & Technical Analysis")
+        with st.spinner("Analyzing Market Data..."):
+            # Use the selected period from sidebar
+            df = dm.get_cached_data([selected_company], period=period)
+            if not df.empty:
+                if isinstance(df.columns, pd.MultiIndex):
+                    if selected_company in df.columns: df = df[selected_company]
+                    elif df.columns.nlevels > 1 and selected_company in df.columns.get_level_values(1): df = df.xs(selected_company, axis=1, level=1)
+                    elif 'Close' in df.columns.get_level_values(0): df.columns = df.columns.get_level_values(0)
+            
+            # Fetch Sentiment for Graph
+            news_df = ns.fetch_news_history(selected_company, days=30)
+            sentiment_daily = pd.DataFrame()
+            if not news_df.empty:
+                news_df = ns.analyze_sentiment(news_df)
+                df_sent = news_df.copy()
+                df_sent['date_only'] = df_sent['date'].dt.date
+                sentiment_daily = df_sent.groupby('date_only')['sentiment'].agg(['mean', 'count', 'std']).reset_index()
+                sentiment_daily = sentiment_daily.rename(columns={'mean': 'sentiment_score', 'count': 'news_count', 'std': 'sentiment_volatility'}).fillna(0)
+            
+            df_features = fe.compute_all_features(df, sentiment_daily)
+            if not sentiment_daily.empty:
+                df_features = fe.merge_sentiment(df_features, sentiment_daily)
+            
+            # Prediction
+            try:
+                ml_global = MLEngine(model_name="xgb_model_global.pkl")
+                if ml_global.load_model():
+                    preds = ml_global.predict(df_features)
+                else:
+                    # st.toast("Global model not found. Training local model...", icon="⚠️")
+                    model = ml.train_model(df_features, model_type="xgboost")
+                    preds = ml.predict(df_features)
+            except Exception as e:
+                print(f"Prediction error: {e}")
+                preds = None
+            
+            combined_stats = {}
+            if preds is not None:
+                combined_stats = ml.calculate_combined_score(df_features, preds)
 
-    # Detailed Market Data
-    st.subheader("Detailed Market Data")
-    t1, t2, t3 = st.columns(3)
-    with t1:
-        st.markdown("#### Trade Information")
-        rows = ""
-        rows += make_table_row("Traded Volume", live_data.get('volume', 0))
-        rows += make_table_row("Traded Value", live_data.get('volume', 0) * live_data.get('current_price', 0))
-        rows += make_table_row("Market Cap", live_data.get('market_cap', 0))
-        rows += make_table_row("Free Float", live_data.get('float_shares', 'N/A'))
-        rows += make_table_row("Shares Outstanding", live_data.get('shares_outstanding', 0))
-        st.markdown(f"<table class='market-data-table'>{rows}</table>", unsafe_allow_html=True)
-    with t2:
-        st.markdown("#### Price Information")
-        rows = ""
-        rows += make_table_row("52 Week High", live_data.get('fifty_two_week_high', 'N/A'))
-        rows += make_table_row("52 Week Low", live_data.get('fifty_two_week_low', 'N/A'))
-        rows += make_table_row("Day High", live_data.get('day_high', 'N/A'))
-        rows += make_table_row("Day Low", live_data.get('day_low', 'N/A'))
-        st.markdown(f"<table class='market-data-table'>{rows}</table>", unsafe_allow_html=True)
-    with t3:
-        st.markdown("#### Securities Information")
-        rows = ""
-        rows += make_table_row("Status", "Listed")
-        rows += make_table_row("Trading Status", "Active")
-        rows += make_table_row("Sector", live_data.get('sector', 'N/A'))
-        rows += make_table_row("Industry", live_data.get('industry', 'N/A'))
-        rows += make_table_row("P/E Ratio", live_data.get('pe_ratio', 'N/A'))
-        st.markdown(f"<table class='market-data-table'>{rows}</table>", unsafe_allow_html=True)
+            # Twitter Sentiment
+            twitter_sent = dm.get_twitter_sentiment(selected_company)
 
-    st.markdown("---")
-
-    # Price & Technical Analysis
-    st.subheader("Price & Technical Analysis")
-    with st.spinner("Analyzing Market Data..."):
-        df = dm.get_cached_data([selected_company], period="2y")
         if not df.empty:
-            if isinstance(df.columns, pd.MultiIndex):
-                if selected_company in df.columns: df = df[selected_company]
-                elif df.columns.nlevels > 1 and selected_company in df.columns.get_level_values(1): df = df.xs(selected_company, axis=1, level=1)
-                elif 'Close' in df.columns.get_level_values(0): df.columns = df.columns.get_level_values(0)
-        
-        news_df = ns.fetch_news_history(selected_company, days=30)
-        sentiment_daily = pd.DataFrame()
-        if not news_df.empty:
-            news_df = ns.analyze_sentiment(news_df)
-            df_sent = news_df.copy()
-            df_sent['date_only'] = df_sent['date'].dt.date
-            sentiment_daily = df_sent.groupby('date_only')['sentiment'].agg(['mean', 'count', 'std']).reset_index()
-            sentiment_daily = sentiment_daily.rename(columns={'mean': 'sentiment_score', 'count': 'news_count', 'std': 'sentiment_volatility'}).fillna(0)
-        
-        df_features = fe.compute_all_features(df, sentiment_daily)
-        if not sentiment_daily.empty:
-            df_features = fe.merge_sentiment(df_features, sentiment_daily)
-        
-        try:
-            ml_global = MLEngine(model_name="xgb_model_global.pkl")
-            if ml_global.load_model():
-                preds = ml_global.predict(df_features)
-            else:
-                st.toast("Global model not found. Training local model...", icon="⚠️")
-                model = ml.train_model(df_features, model_type="xgboost")
-                preds = ml.predict(df_features)
-        except Exception as e:
-            print(f"Prediction error: {e}")
-            preds = None
-        
-        combined_stats = {}
-        if preds is not None:
-            combined_stats = ml.calculate_combined_score(df_features, preds)
+            st.plotly_chart(plot_stock_chart(df_features, selected_company, chart_type, show_technicals, sentiment_daily), use_container_width=True)
+        else:
+            st.warning("No data available.")
 
-    if not df.empty:
-        st.plotly_chart(plot_stock_chart(df_features, selected_company, chart_type, show_technicals, sentiment_daily), use_container_width=True)
-    else:
-        st.warning("No data available.")
+    with tab_financials:
+        st.subheader("📊 Financial Statements")
+        financials = dm.get_financials(selected_company)
+        
+        if financials:
+            t_inc, t_bal, t_cash = st.tabs(["Income Statement", "Balance Sheet", "Cash Flow"])
+            with t_inc:
+                st.dataframe(financials.get('income_stmt', pd.DataFrame()).style.format("{:,.0f}"), use_container_width=True, height=500)
+            with t_bal:
+                st.dataframe(financials.get('balance_sheet', pd.DataFrame()).style.format("{:,.0f}"), use_container_width=True, height=500)
+            with t_cash:
+                st.dataframe(financials.get('cashflow', pd.DataFrame()).style.format("{:,.0f}"), use_container_width=True, height=500)
+        else:
+            st.warning("Financial statements unavailable.")
 
-    st.markdown("---")
-    
-    # KPIs
-    k1, k2, k3 = st.columns(3)
-    tech_score = combined_stats.get('technical_score', 0)
-    sent_score = combined_stats.get('sentiment_score', 0)
-    model_score = combined_stats.get('prediction_score', 0)
-    
-    with k1:
-        st.metric("Technical Score", f"{tech_score}/100")
-        st.progress(tech_score/100)
-    with k2:
-        st.metric("Sentiment Score", f"{sent_score}/100")
-        st.progress(sent_score/100)
-    with k3:
-        st.metric("AI Model Score", f"{model_score}/100")
-        st.progress(model_score/100)
+    with tab_ratios:
+        st.subheader("📈 Key Financial Ratios")
+        ratios = dm.get_key_ratios(selected_company)
+        
+        if ratios:
+            for category, metrics in ratios.items():
+                st.markdown(f"#### {category}")
+                cols = st.columns(len(metrics))
+                for i, (metric, value) in enumerate(metrics.items()):
+                    val_str = f"{value:.2f}" if isinstance(value, (int, float)) else "N/A"
+                    if "Margin" in metric or "Yield" in metric or "ROE" in metric or "ROA" in metric:
+                         val_str = f"{value*100:.2f}%" if isinstance(value, (int, float)) else "N/A"
+                         
+                    cols[i].metric(metric, val_str)
+                st.markdown("---")
+        else:
+            st.warning("Ratios unavailable.")
+
+    with tab_news:
+        st.subheader("📰 Market Pulse")
+        # KPIs
+        k1, k2, k3, k4 = st.columns(4)
+        tech_score = combined_stats.get('technical_score', 0)
+        sent_score = combined_stats.get('sentiment_score', 0)
+        model_score = combined_stats.get('prediction_score', 0)
+        social_score = twitter_sent.get('score', 50)
+        
+        with k1:
+            st.metric("Technical Score", f"{tech_score}/100")
+            st.progress(tech_score/100)
+        with k2:
+            st.metric("News Sentiment", f"{sent_score}/100")
+            st.progress(sent_score/100)
+        with k3:
+            st.metric("Social Sentiment", f"{social_score:.0f}/100")
+            st.progress(social_score/100)
+        with k4:
+            st.metric("AI Model Score", f"{model_score}/100")
+            st.progress(model_score/100)
+            
+        st.markdown("### 🐦 Latest Tweets")
+        if twitter_sent.get('latest_tweets'):
+            for t in twitter_sent['latest_tweets']:
+                st.info(f"**@{t['user']}**: {t['text']} \n\n *❤️ {t['likes']} | 📅 {t['date']}*")
+        else:
+            st.info("No recent tweets found.")
 
     st.markdown("---")
     
@@ -553,16 +557,62 @@ def render_stock_analysis():
 
     st.markdown("---")
     
-    # AI Executive Summary
+    # AI Executive Summary (Visual)
     st.markdown(f"### 🤖 AI Executive Summary <span style='font-size:0.6em; color:#94a3b8;'>({ai_model.split('/')[1] if ai_model else 'Off'})</span>", unsafe_allow_html=True)
     if ai_model:
-        with st.spinner(f"Generating insights using {ai_model}..."):
+        with st.spinner(f"Generating visual insights using {ai_model}..."):
             st.markdown('<div class="st-card">', unsafe_allow_html=True)
-            st.markdown(generate_company_summary(selected_company, model=ai_model))
-            st.markdown("---")
-            if combined_stats:
-                st.markdown("#### 🧠 Technical Deep Dive")
-                st.markdown(get_ai_insights(selected_company, combined_stats, model=ai_model))
+            
+            raw_response = generate_company_summary(selected_company, model=ai_model)
+            
+            try:
+                import json
+                # Clean potential markdown backticks
+                cleaned_response = raw_response.replace('```json', '').replace('```', '').strip()
+                ai_data = json.loads(cleaned_response)
+                
+                # Render Summary Text
+                st.markdown(ai_data.get("summary", "No summary provided."))
+                st.markdown("---")
+                
+                # Render Metrics
+                if "metrics" in ai_data:
+                    cols = st.columns(len(ai_data["metrics"]))
+                    for i, (k, v) in enumerate(ai_data["metrics"].items()):
+                        cols[i].metric(k, v)
+                    st.markdown("---")
+                
+                # Render AI Charts
+                if "charts" in ai_data:
+                    st.subheader("📊 AI-Generated Trends")
+                    c_charts = st.columns(len(ai_data["charts"]))
+                    for i, chart in enumerate(ai_data["charts"]):
+                        with c_charts[i]:
+                            chart_type = chart.get("type", "bar")
+                            title = chart.get("title", "Trend")
+                            data = pd.DataFrame(chart.get("data", []))
+                            x_key = chart.get("x_key", "label")
+                            y_keys = chart.get("y_keys", ["value"])
+                            
+                            if not data.empty:
+                                fig = go.Figure()
+                                for y_col in y_keys:
+                                    if chart_type == "bar":
+                                        fig.add_trace(go.Bar(x=data[x_key], y=data[y_col], name=y_col))
+                                    else:
+                                        fig.add_trace(go.Scatter(x=data[x_key], y=data[y_col], name=y_col))
+                                
+                                fig.update_layout(title=title, height=300, margin=dict(l=10, r=10, t=40, b=10))
+                                st.plotly_chart(fig, use_container_width=True)
+                            
+                if combined_stats:
+                    st.markdown("#### 🧠 Technical Deep Dive")
+                    st.markdown(get_ai_insights(selected_company, combined_stats, model=ai_model))
+                    
+            except json.JSONDecodeError:
+                # Fallback for plain text
+                st.markdown(raw_response)
+                
             st.markdown('</div>', unsafe_allow_html=True)
     else:
         st.info("💡 Select an AI Model in the sidebar to enable real-time AI analysis.")
@@ -585,6 +635,7 @@ def render_investment_planner():
         expected_return = st.slider("Expected Annual Return (%)", 5, 30, 12)
     with col_in3:
         risk_profile = st.select_slider("Risk Profile", options=["Conservative", "Moderate", "Aggressive", "Very Aggressive"], value="Moderate")
+        experience_level = st.select_slider("Experience Level", options=["Beginner", "Intermediate", "Advanced"], value="Intermediate")
         st.info(f"Targeting **{risk_profile}** growth strategy")
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -593,32 +644,51 @@ def render_investment_planner():
 
     with tab_suggest:
         st.subheader("🚀 AI-Powered Investment Plan")
-        if st.button("Generate Premium Plan", type="primary"):
-            qe = QuantEngine(dm)
-            user_profile = {"investment_amount": inv_amount, "duration_years": duration, "risk_profile": risk_profile, "investment_type": inv_type, "expected_annual_return_pct": expected_return}
-            
-            with st.spinner("Running Quant Pipeline..."):
-                payload = qe.run_pipeline(user_profile)
-                if "error" in payload:
-                     st.error(f"Pipeline Error: {payload['error']}")
-                else:
-                     metrics = payload.get('backtest_summary', {})
-                     m1, m2, m3, m4 = st.columns(4)
-                     m1.metric("Projected CAGR", f"{metrics.get('annualized_return_pct', 0):.2f}%")
-                     m2.metric("Sharpe Ratio", f"{metrics.get('sharpe', 0):.2f}")
-                     m3.metric("Max Drawdown", f"{metrics.get('max_drawdown_pct', 0):.2f}%")
-                     m4.metric("Volatility", f"{metrics.get('annualized_vol_pct', 0):.2f}%")
-                     
-                     chart_data = payload.get('chart_data', {})
-                     equity_curve = pd.DataFrame(chart_data.get('equity_curve', []))
-                     if not equity_curve.empty:
-                         fig = go.Figure()
-                         fig.add_trace(go.Scatter(x=equity_curve['date'], y=equity_curve['value'], mode='lines', name='AI Strategy', line=dict(color='#00CC96', width=3)))
-                         fig.update_layout(title="Cumulative Returns", template="plotly_dark", height=500)
-                         st.plotly_chart(fig, use_container_width=True)
-                     
-                     st.markdown("### 📋 Strategy Summary")
-                     st.markdown(generate_quant_investment_plan(payload, model=ai_model))
+        
+        c_gen1, c_gen2 = st.columns([1, 1])
+        with c_gen1:
+            if st.button("Generate Quant Strategy (Backtested)", type="primary"):
+                qe = QuantEngine(dm)
+                user_profile = {"investment_amount": inv_amount, "duration_years": duration, "risk_profile": risk_profile, "investment_type": inv_type, "expected_annual_return_pct": expected_return}
+                
+                with st.spinner("Running Quant Pipeline..."):
+                    payload = qe.run_pipeline(user_profile)
+                    if "error" in payload:
+                         st.error(f"Pipeline Error: {payload['error']}")
+                    else:
+                         metrics = payload.get('backtest_summary', {})
+                         m1, m2, m3, m4 = st.columns(4)
+                         m1.metric("Projected CAGR", f"{metrics.get('annualized_return_pct', 0):.2f}%")
+                         m2.metric("Sharpe Ratio", f"{metrics.get('sharpe', 0):.2f}")
+                         m3.metric("Max Drawdown", f"{metrics.get('max_drawdown_pct', 0):.2f}%")
+                         m4.metric("Volatility", f"{metrics.get('annualized_vol_pct', 0):.2f}%")
+                         
+                         chart_data = payload.get('chart_data', {})
+                         equity_curve = pd.DataFrame(chart_data.get('equity_curve', []))
+                         if not equity_curve.empty:
+                             fig = go.Figure()
+                             fig.add_trace(go.Scatter(x=equity_curve['date'], y=equity_curve['value'], mode='lines', name='AI Strategy', line=dict(color='#00CC96', width=3)))
+                             fig.update_layout(title="Cumulative Returns", template="plotly_dark", height=500)
+                             st.plotly_chart(fig, use_container_width=True)
+                         
+                         st.markdown("### 📋 Strategy Summary")
+                         st.markdown(generate_quant_investment_plan(payload, model=ai_model))
+
+        with c_gen2:
+            from modules.utils.ai_insights import generate_investment_plan
+            if st.button("Ask AI Advisor (Text Plan)"):
+                with st.spinner("Consulting AI Financial Planner..."):
+                    plan_text = generate_investment_plan(
+                        amount=inv_amount,
+                        duration_years=duration,
+                        expected_return=expected_return,
+                        risk_profile=risk_profile,
+                        market_context="Indian Market is volatile but bullish in long term.",
+                        investment_type=inv_type,
+                        experience_level=experience_level,
+                        model=ai_model
+                    )
+                    st.markdown(plan_text)
 
     with tab_build:
         st.subheader("Custom Portfolio Builder")
@@ -656,12 +726,16 @@ def render_investment_planner():
 
 # --- MAIN APP LOGIC ---
 
+from modules.ui.landing_page import render_landing_page
+
 def main():
     # Sidebar Navigation
     st.sidebar.title("Navigation")
-    page = st.sidebar.radio("Go to", ["Dashboard", "Stock Analysis", "Investment Planner"])
+    page = st.sidebar.radio("Go to", ["Home", "Dashboard", "Stock Analysis", "Investment Planner"])
     
-    if page == "Dashboard":
+    if page == "Home":
+        render_landing_page()
+    elif page == "Dashboard":
         render_dashboard()
     elif page == "Stock Analysis":
         render_stock_analysis()

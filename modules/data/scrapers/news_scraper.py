@@ -24,6 +24,7 @@ class NewsScraper:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         
+        # Try specific date query first
         query = f"{search_term} stock news after:{start_date.strftime('%Y-%m-%d')}"
         encoded_query = urllib.parse.quote(query)
         url = self.base_url.format(query=encoded_query)
@@ -32,27 +33,45 @@ class NewsScraper:
         
         try:
             feed = feedparser.parse(url)
+            
+            # FALLBACK: If strict query returns nothing, try general query
+            if not feed.entries:
+                print(f"No results for strict query. Trying general query for {search_term}...")
+                query = f"{search_term} stock news"
+                encoded_query = urllib.parse.quote(query)
+                url = self.base_url.format(query=encoded_query)
+                feed = feedparser.parse(url)
+
             news_items = []
             
             for entry in feed.entries:
                 try:
                     # Parse published date
                     # format: 'Mon, 02 Dec 2025 07:00:00 GMT'
-                    pub_date = datetime(*entry.published_parsed[:6])
+                    # Handle different date formats if needed
+                    dt_struct = entry.published_parsed
+                    if dt_struct:
+                        pub_date = datetime(*dt_struct[:6])
+                    else:
+                        pub_date = datetime.now() # Fallback
                     
-                    if pub_date >= start_date:
-                        news_items.append({
-                            'date': pub_date,
-                            'title': entry.title,
-                            'link': entry.link,
-                            'source': entry.source.title if 'source' in entry else 'Google News'
-                        })
+                    # Optional: Filter by date if we used general query
+                    # if pub_date >= start_date:
+                    news_items.append({
+                        'date': pub_date,
+                        'title': entry.title,
+                        'link': entry.link,
+                        'source': entry.source.title if 'source' in entry else 'Google News'
+                    })
                 except Exception as e:
                     continue
             
             df = pd.DataFrame(news_items)
             if not df.empty:
                 df = df.sort_values('date', ascending=False)
+                # Filter to requested days locally
+                df = df[df['date'] >= start_date]
+
             return df
             
         except Exception as e:

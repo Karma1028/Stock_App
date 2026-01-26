@@ -189,6 +189,12 @@ const Index = () => {
                   market_cap={stock.market_cap}
                   pe_ratio={stock.pe_ratio}
                   isLoading={dashboardLoading}
+                  onRemove={(symbolToRemove) => {
+                    const updated = selectedStocks.filter(s => s !== symbolToRemove);
+                    setSelectedStocks(updated);
+                    localStorage.setItem('dashboard_stocks', JSON.stringify(updated));
+                    refetch();
+                  }}
                 />
               ))}
             </div>

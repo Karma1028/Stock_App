@@ -1,5 +1,5 @@
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/glass-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ interface TopGainersCardProps {
 }
 
 const TopGainersCard = ({ gainers, isLoading }: TopGainersCardProps) => {
+  const navigate = useNavigate();
   if (isLoading) {
     return (
       <GlassCard variant="elevated">
@@ -50,40 +51,40 @@ const TopGainersCard = ({ gainers, isLoading }: TopGainersCardProps) => {
       <GlassCardHeader>
         <GlassCardTitle>Top Gainers</GlassCardTitle>
       </GlassCardHeader>
-      
+
       <GlassCardContent>
         <div className="space-y-3">
           {gainers.map((stock, index) => {
             const isPositive = stock.change_pct >= 0;
             return (
-              <Link
-                to={`/stock/${stock.symbol}`}
+              <div
                 key={stock.symbol}
-                className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg hover:bg-secondary/80 transition-colors cursor-pointer group animate-slide-up"
+                onClick={() => navigate(`/analysis?symbol=${stock.symbol}`)}
+                className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-lg transition-all cursor-pointer group animate-slide-up border border-transparent hover:border-primary/20"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <span className="text-xs font-bold text-primary">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <span className="text-xs font-bold text-primary group-hover:scale-110 transition-transform">
                       {stock.symbol.slice(0, 2)}
                     </span>
                   </div>
                   <div>
-                    <p className="font-medium text-foreground group-hover:text-primary transition-colors">
+                    <p className="font-semibold text-foreground group-hover:text-primary transition-colors">
                       {stock.symbol.replace('.NS', '')}
                     </p>
-                    <p className="text-xs text-muted-foreground">NSE</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest">NSE India</p>
                   </div>
                 </div>
-                
+
                 <div className="text-right">
-                  <p className="font-mono font-semibold text-foreground">
+                  <p className="font-mono font-bold text-foreground">
                     ₹{stock.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </p>
                   <div
                     className={cn(
-                      "flex items-center justify-end gap-1 text-sm font-medium",
-                      isPositive ? "text-primary" : "text-destructive"
+                      "flex items-center justify-end gap-1 text-xs font-bold px-1.5 py-0.5 rounded mt-1 transition-colors",
+                      isPositive ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
                     )}
                   >
                     {isPositive ? (
@@ -94,7 +95,7 @@ const TopGainersCard = ({ gainers, isLoading }: TopGainersCardProps) => {
                     {isPositive ? '+' : ''}{stock.change_pct.toFixed(2)}%
                   </div>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>
