@@ -781,18 +781,28 @@ def render_robo_advisor():
     atr_val = atr if not pd.isna(atr) else 0.0
 
     # Build summary for AI (with safe beta formatting)
+    bs_str = bs_df.to_string() if 'bs_df' in locals() and bs_df is not None and not bs_df.empty else "N/A"
+    cf_str = cf_df.to_string() if 'cf_df' in locals() and cf_df is not None and not cf_df.empty else "N/A"
+    
+    ratio_str = "\\n".join(
+        [f"  - {cat}: " + ", ".join([f"{name}={_safe_get(info, key, 'N/A')}" for name, key in items]) 
+         for cat, items in ratio_map.items()]
+    ) if 'ratio_map' in locals() else "N/A"
+
     summary_data = (
-        f"Stock: {company_name} ({ticker})\n"
-        f"Sector: {sector} | Industry: {industry}\n"
-        f"Current Price: ₹{price:,.2f} | Change: {change_pct:+.2f}%\n"
-        f"Market Cap: {_safe_get(info, 'marketCap', 'N/A')}\n"
-        f"P/E: {_safe_get(info, 'trailingPE', 'N/A')} | P/B: {_safe_get(info, 'priceToBook', 'N/A')}\n"
-        f"RSI: {_safe(rsi, '.1f')} | MACD: {'Bullish' if not pd.isna(macd_diff) and macd_diff > 0 else 'Bearish'}\n"
-        f"SMA 50/200: {'Golden Cross' if not pd.isna(sma50) and not pd.isna(sma200) and sma50 > sma200 else 'Death Cross'}\n"
-        f"Annualized Volatility: {ann_vol:.1f}% | GARCH 1d: {garch_vol:.2f}%\n"
-        f"VaR 95%: {var_95:.2f}% | Max Drawdown: {max_dd:.1f}%\n"
-        f"Sharpe: {sharpe:.2f} | Beta: {beta_str}\n"
-        f"Half-Kelly Position: {kelly/2*100:.1f}%"
+        f"Stock: {company_name} ({ticker})\\n"
+        f"Sector: {sector} | Industry: {industry}\\n"
+        f"Current Price: ₹{price:,.2f} | Change: {change_pct:+.2f}%\\n"
+        f"Market Cap: {_safe_get(info, 'marketCap', 'N/A')}\\n"
+        f"RSI: {_safe(rsi, '.1f')} | MACD: {'Bullish' if not pd.isna(macd_diff) and macd_diff > 0 else 'Bearish'}\\n"
+        f"SMA 50/200: {'Golden Cross' if not pd.isna(sma50) and not pd.isna(sma200) and sma50 > sma200 else 'Death Cross'}\\n"
+        f"Annualized Volatility: {ann_vol:.1f}% | GARCH 1d: {garch_vol:.2f}%\\n"
+        f"VaR 95%: {var_95:.2f}% | Max Drawdown: {max_dd:.1f}%\\n"
+        f"Sharpe: {sharpe:.2f} | Beta: {beta_str}\\n"
+        f"Half-Kelly Position: {kelly/2*100:.1f}%\\n\\n"
+        f"=== KEY RATIOS ===\\n{ratio_str}\\n\\n"
+        f"=== RECENT BALANCE SHEET (Cr) ===\\n{bs_str}\\n\\n"
+        f"=== RECENT CASH FLOW (Cr) ===\\n{cf_str}"
     )
 
     # Auto-Trigger AI Verdict
@@ -836,10 +846,9 @@ def render_robo_advisor():
                             if text:
                                 st.markdown(f"### {title}\n{text}")
                 else:
-                    system = """You are a senior CIO at an institutional fund. Based on the quantitative data provided,
-                    give a concise verdict: BUY/HOLD/SELL with conviction level (1-10).
-                    Include: (1) 2-line thesis, (2) 3 key risks, (3) position sizing recommendation,
-                    (4) stop-loss level, (5) 3-month price target range. Be specific with numbers."""
+                    system = """You are a senior CIO at an institutional fund. Based on the quantitative data provided, give a concise verdict: BUY/HOLD/SELL with conviction level (1-10).
+                    CRITICAL: You MUST explicitly explain and critique ALL provided ratios, the Balance Sheet, and the Cash Flow details based on the overall fundamental health of the business.
+                    Include: (1) 2-line thesis, (2) 3 key risks, (3) fundamental breakdown of the statements, (4) position sizing recommendation, (5) stop-loss & price target."""
                     
                     from agentic_backend import stream_deepseek_reasoner
                     st.markdown("#### ⚖️ Live CIO Verdict")
@@ -917,54 +926,54 @@ def render_robo_advisor():
                 thinking_buf = ""
                 content_buf = ""
                 
-                    in_think_block = False
-                    for chunk in stream_deepseek_reasoner(system, summary_data):
-                        ctype = chunk.get("type")
-                        cdelta = chunk.get("delta", "")
+                in_think_block = False
+                for chunk in stream_deepseek_reasoner(system, summary_data):
+                    ctype = chunk.get("type")
+                    cdelta = chunk.get("delta", "")
+                    
+                    if ctype == "reasoning":
+                        thinking_buf += cdelta
+                        formatted_thought = parse_and_format_thought(thinking_buf)
+                        thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
+                    elif ctype == "content":
+                        if "<think>" in cdelta or "<|!|>" in cdelta:
+                            in_think_block = True
+                            cdelta = cdelta.replace("<think>", "").replace("<|!|>", "")
                         
-                        if ctype == "reasoning":
+                        if "</think>" in cdelta or "</|!|>" in cdelta or "<|!|>" in cdelta and in_think_block:
+                            in_think_block = False
+                            if "</think>" in cdelta: parts = cdelta.split("</think>")
+                            elif "</|!|>" in cdelta: parts = cdelta.split("</|!|>")
+                            else: parts = cdelta.split("<|!|>")
+                                
+                            thinking_buf += parts[0]
+                            formatted_thought = parse_and_format_thought(thinking_buf)
+                            thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
+                            
+                            if status_container.state == "running":
+                                status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                            if len(parts) > 1:
+                                content_buf += parts[1]
+                                main_placeholder.markdown(content_buf)
+                            continue
+                        
+                        if in_think_block:
                             thinking_buf += cdelta
                             formatted_thought = parse_and_format_thought(thinking_buf)
                             thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
-                        elif ctype == "content":
-                            if "<think>" in cdelta or "<|!|>" in cdelta:
-                                in_think_block = True
-                                cdelta = cdelta.replace("<think>", "").replace("<|!|>", "")
-                            
-                            if "</think>" in cdelta or "</|!|>" in cdelta or "<|!|>" in cdelta and in_think_block:
-                                in_think_block = False
-                                if "</think>" in cdelta: parts = cdelta.split("</think>")
-                                elif "</|!|>" in cdelta: parts = cdelta.split("</|!|>")
-                                else: parts = cdelta.split("<|!|>")
-                                    
-                                thinking_buf += parts[0]
-                                formatted_thought = parse_and_format_thought(thinking_buf)
-                                thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
-                                
-                                if status_container.state == "running":
-                                    status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                                if len(parts) > 1:
-                                    content_buf += parts[1]
-                                    main_placeholder.markdown(content_buf)
-                                continue
-                            
-                            if in_think_block:
-                                thinking_buf += cdelta
-                                formatted_thought = parse_and_format_thought(thinking_buf)
-                                thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
-                            else:
-                                if thinking_buf and status_container.state == "running":
-                                    status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                                content_buf += cdelta
-                                main_placeholder.markdown(content_buf)
-                        
+                        else:
+                            if thinking_buf and status_container.state == "running":
+                                status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                            content_buf += cdelta
+                            main_placeholder.markdown(content_buf)
+                    
                 if status_container.state == "running":
                     if thinking_buf:
                         status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
                     else:
                         status_container.empty()
             except Exception as e:
-                    st.error(f"AI Verdict generation failed: {e}")
+                st.error(f"AI Verdict generation failed: {e}")
     else:
         st.info("AI verdict requires `agentic_backend.py` with OpenRouter API key configured.")
 

@@ -36,7 +36,7 @@ Respond with ONLY valid JSON — no markdown, no explanation outside JSON.
   "deep_report": {{
     "executive_summary": "3-paragraph institutional-grade executive summary",
     "technical_analysis": "Detailed technical analysis — RSI, MACD, SMA, support/resistance levels",
-    "fundamental_analysis": "P/E, P/B, margins, growth metrics analysis",
+    "fundamental_analysis": "CRITICAL: You MUST explicitly explain and critique ALL provided ratios (Valuation, Profitability, Leverage), and critically analyze the Balance Sheet and Cash Flow details based on the overall fundamental health of the business.",
     "risk_assessment": "VaR, drawdown, volatility, beta interpretation",
     "sector_outlook": "Industry positioning and competitive landscape"
   }},
