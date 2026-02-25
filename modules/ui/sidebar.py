@@ -76,6 +76,11 @@ def show_sidebar():
     default_model_idx = next((i for i, m in enumerate(model_list) if "deepseek" in m.lower()), 0)
     ai_model = st.sidebar.selectbox("Default Model", model_names, index=default_model_idx)
 
+    if tier_choice == "💻 LM Studio (Local)":
+        default_lm_url = st.session_state.get("lm_studio_url", "http://localhost:1234")
+        custom_lm_url = st.sidebar.text_input("Local LLM Base URL", value=default_lm_url)
+        st.session_state["lm_studio_url"] = custom_lm_url
+
     # ── Custom API Key ──
     with st.sidebar.expander("🔑 Add Your Own API Key", expanded=False):
         PROVIDERS = {

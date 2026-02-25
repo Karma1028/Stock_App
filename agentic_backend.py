@@ -581,9 +581,19 @@ def query_deepseek_reasoner(system_prompt: str, user_data: str) -> str:
     # TIER 3: LM STUDIO — local LLM (auto-detected)
     # ════════════════════════════════════════════════════════════
     try:
-        from config import Config
-        lm_url = Config.LM_STUDIO_URL
+        import streamlit as st
+        lm_url = st.session_state.get("lm_studio_url")
     except Exception:
+        lm_url = None
+        
+    if not lm_url:
+        try:
+            from config import Config
+            lm_url = getattr(Config, 'LM_STUDIO_URL', None)
+        except Exception:
+            pass
+            
+    if not lm_url:
         lm_url = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
 
     if lm_url:
@@ -689,9 +699,19 @@ def stream_deepseek_reasoner(system_prompt: str, user_data: str):
     # --- TIER 3: LM STUDIO (We prioritize this to match user request for local streaming) ---
     if _selected_tier in ("auto", "lmstudio"):
         try:
-            from config import Config
-            lm_url = Config.LM_STUDIO_URL
+            import streamlit as st
+            lm_url = st.session_state.get("lm_studio_url")
         except Exception:
+            lm_url = None
+            
+        if not lm_url:
+            try:
+                from config import Config
+                lm_url = getattr(Config, 'LM_STUDIO_URL', None)
+            except Exception:
+                pass
+                
+        if not lm_url:
             lm_url = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
 
         if lm_url:
