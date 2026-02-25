@@ -320,6 +320,10 @@ def query_deepseek_reasoner(system_prompt: str, user_data: str) -> str:
     except ImportError:
         return "[OpenAI SDK not installed] Cannot query AI."
 
+    # Enforce thinking tags for ALL AI queries so parsing works consistently
+    if "<think>" not in system_prompt:
+        system_prompt = system_prompt.rstrip() + "\n\nTHINKING PROCESS (MANDATORY):\nBefore you write the final response, you MUST wrap your scratchpad analytical thinking inside <think> ... </think> tags."
+
     # ── Try custom API key first (any provider) ──
     try:
         import streamlit as st
@@ -944,29 +948,28 @@ def get_system_prompt_template() -> str:
 
 def parse_thinking_block(response_text: str) -> tuple[str, str]:
     """
-    Extracts the <think> block from an LLM response if present.
+    Extracts all <think> blocks from an LLM response if present.
     Returns: (thinking_text, final_answer)
     """
     if not isinstance(response_text, str):
         return "", str(response_text)
         
     import re
-    # Look for anything inside <think>...</think> including linebreaks
-    match = re.search(r'<think>(.*?)</think>\s*(.*)', response_text, re.DOTALL | re.IGNORECASE)
+    # 1. Find all closed think blocks
+    thoughts = re.findall(r'<think>(.*?)</think>', response_text, flags=re.DOTALL | re.IGNORECASE)
     
-    if match:
-        thinking_text = match.group(1).strip()
-        final_answer = match.group(2).strip()
-        return thinking_text, final_answer
-        
-    # Some models produce thoughts without closing tags if interrupted
-    match_open = re.search(r'<think>(.*)', response_text, re.DOTALL | re.IGNORECASE)
+    # 2. Remove all closed think blocks from the final answer
+    final_answer = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL | re.IGNORECASE)
+    
+    # 3. Check for unclosed think block at the very end (if interrupted)
+    match_open = re.search(r'<think>(.*)', final_answer, flags=re.DOTALL | re.IGNORECASE)
     if match_open:
-        thinking_text = match_open.group(1).strip()
-        # Assume it's all thinking if no closing tag found
-        return thinking_text, "*(Thought process interrupted before final answer)*"
+        thoughts.append(match_open.group(1))
+        # Remove the unclosed block
+        final_answer = re.sub(r'<think>.*', '', final_answer, flags=re.DOTALL | re.IGNORECASE)
         
-    return "", response_text.strip()
+    thinking_text = "\n\n".join([t.strip() for t in thoughts if t.strip()])
+    return thinking_text, final_answer.strip()
 
 if __name__ == "__main__":
     print("=" * 60)
