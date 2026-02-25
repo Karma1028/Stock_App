@@ -452,11 +452,14 @@ class StockDataManager:
             else:
                 closes = data # Fallback if single level (rare for bulk)
             
+            # Resample to daily to handle partial/live intraday data correctly
+            daily_closes = closes.resample('D').last().dropna(how='all')
+            
             # Drop columns with all NaNs (delisted or no data)
-            closes = closes.dropna(axis=1, how='all')
+            daily_closes = daily_closes.dropna(axis=1, how='all')
             
             # Calculate % change of last available day vs previous
-            pct_change = closes.pct_change().ffill().iloc[-1]
+            pct_change = daily_closes.pct_change(fill_method=None).iloc[-1]
             top_gainers = pct_change.nlargest(limit)
             
             results = []
@@ -491,7 +494,8 @@ class StockDataManager:
             else:
                 closes = data
                 
-            changes = closes.pct_change().iloc[-1]
+            daily_closes = closes.resample('D').last().dropna(how='all')
+            changes = daily_closes.pct_change(fill_method=None).iloc[-1]
             
             advances = (changes > 0).sum()
             declines = (changes < 0).sum()
