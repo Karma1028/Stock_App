@@ -222,19 +222,55 @@ async def scrape_ticker_news(ticker: str) -> str:
 # ==========================================
 
 # The CIO System Prompt (Part 5 of the Master Blueprint)
-DEEPSEEK_SYSTEM_PROMPT = """You are the Chief Investment Officer of an elite quantitative hedge fund. 
-Your task is to synthesize technical machine learning data, live fundamental news, and user risk constraints to write a highly professional, transparent, and actionable 3-paragraph investment summary for a client.
+DEEPSEEK_SYSTEM_PROMPT = """You are the Chief Investment Officer of an elite quantitative hedge fund.
+Your task is to synthesize pre-computed quantitative data, live fundamental news, and user risk constraints into a deeply reasoned, actionable investment analysis.
 
-INPUT DATA PROVIDED:
-1. User Profile: {user_risk_tolerance}, {investment_horizon}, {investment_type}
-2. Technical Quant Data: LSTM Buy Probability is {lstm_prob}%. The Monte Carlo Uncertainty Standard Deviation is {lstm_uncertainty}. The GARCH predicted 1-day volatility is {garch_vol}.
-3. Fundamental News (Scraped via Crawl4AI): {scraped_markdown_text}
+CRITICAL RULES:
+1. ALL numbers, calculations, and metrics are PRE-COMPUTED by our Python quant engine. DO NOT perform any arithmetic, estimation, or recalculation. Use the exact numbers provided.
+2. Your role is INTERPRETATION and REASONING only — connecting dots across domains, identifying conflicts, and drawing conclusions.
 
-INSTRUCTIONS for Output:
-- PARAGRAPH 1 (The Quantitative View): Explain the LSTM and GARCH data in plain English. Do not use jargon without explaining it. State whether the math favors a long position.
-- PARAGRAPH 2 (The Fundamental View): Synthesize the scraped news. Identify the biggest fundamental tailwind and the biggest fundamental risk (e.g., macro-economics, interest rates, commodities).
-- PARAGRAPH 3 (The Verdict & Sizing): Reason through the conflict between the math and the news. Based STRICTLY on the User Profile provided, provide a definitive conclusion on whether they should allocate capital to this stock, and how they should scale their position based on the Uncertainty score.
-- TONE: Authoritative, objective, cautious, strictly data-driven. Zero fluff."""
+THINKING PROCESS (MANDATORY — use <think>...</think> tags):
+You MUST reason through ALL 6 domains before writing your final answer:
+
+DOMAIN 1 — TECHNICAL/QUANTITATIVE ANALYSIS:
+- What does the LSTM breakout probability tell us? Is it above or below 50%?
+- Interpret the RSI zone (oversold/overbought/neutral) — what does this historically imply?
+- Is the MACD bullish or bearish? Does it confirm or contradict the trend?
+- Is there a Golden Cross or Death Cross? What does this mean for medium-term momentum?
+- What is the price position relative to SMA-50 and SMA-200?
+
+DOMAIN 2 — FUNDAMENTAL/NEWS ANALYSIS:
+- What are the key headlines? Separate signal from noise.
+- Identify the single biggest tailwind and single biggest risk from the news.
+- Are there any earnings surprises, management changes, or regulatory events?
+
+DOMAIN 3 — MACRO/GEOPOLITICAL:
+- What is the broader market environment (bull/bear/sideways)?
+- Any central bank policy, inflation, or interest rate implications?
+- Geopolitical risks that could affect this sector or stock?
+
+DOMAIN 4 — SECTOR/INDUSTRY:
+- How is this sector performing relative to the broader market?
+- Any sector rotation happening? Is money flowing in or out?
+- Competitive positioning of this company within its industry.
+
+DOMAIN 5 — RISK/VOLATILITY ASSESSMENT:
+- Is the GARCH volatility HIGH, NORMAL, or LOW? What does this imply for position sizing?
+- What is the uncertainty band? How confident should we be?
+- What is the max potential downside based on the volatility regime?
+
+DOMAIN 6 — BEHAVIORAL/SENTIMENT:
+- Is there fear or greed in the market for this stock?
+- Does the RSI + news sentiment align or diverge?
+- Are retail investors piling in (contrarian signal) or institutional accumulation?
+
+After completing ALL 6 domains in your <think> block, write your final analysis.
+
+INSTRUCTIONS for Final Output (after <think>):
+- PARAGRAPH 1 (Quant Verdict): Summarize what the pre-computed technical data tells us. State clearly: does the math favor a long position? Reference exact numbers from the dashboard.
+- PARAGRAPH 2 (Fundamental + Macro View): Synthesize news, macro environment, and sector dynamics. What is the fundamental story?
+- PARAGRAPH 3 (The Verdict & Position Sizing): Deliver a clear BUY/HOLD/SELL recommendation tied strictly to the User Profile. Specify position sizing based on the uncertainty and volatility regime (e.g., "allocate only 30% of intended size due to HIGH volatility regime").
+- TONE: Authoritative, objective, cautious, data-driven. Zero fluff. Every sentence must add value."""
 
 
 def _update_api_stats(success=False, model="", input_tokens=0, output_tokens=0, key_exhausted=False, error=""):
@@ -716,18 +752,48 @@ def node_quant_engine(state: AgentState) -> AgentState:
             if state["garch_volatility"] > 0.025: base_prob -= 0.10
             
             state["lstm_prob"] = min(max(base_prob, 0.05), 0.95)
-            state["lstm_uncertainty"] = 0.02 + (state["garch_volatility"] * 0.5) # Uncertainty correlates with vol
+            state["lstm_uncertainty"] = 0.02 + (state["garch_volatility"] * 0.5)
+            
+            # ── Store ALL pre-computed metrics (so LLM does zero math) ──
+            macd_line = df['Close'].ewm(span=12).mean().iloc[-1] - df['Close'].ewm(span=26).mean().iloc[-1]
+            macd_signal = (df['Close'].ewm(span=12).mean() - df['Close'].ewm(span=26).mean()).ewm(span=9).mean().iloc[-1]
+            if isinstance(macd_line, pd.Series): macd_line = macd_line.item()
+            if isinstance(macd_signal, pd.Series): macd_signal = macd_signal.item()
+            
+            yr_return = ((price / df['Close'].iloc[0]) - 1) * 100
+            if isinstance(yr_return, pd.Series): yr_return = yr_return.item()
+            
+            avg_vol_21d = returns.tail(21).std() * (252 ** 0.5) * 100
+            if isinstance(avg_vol_21d, pd.Series): avg_vol_21d = avg_vol_21d.item()
+            
+            state["precomputed"] = {
+                "price": round(float(price), 2),
+                "sma50": round(float(sma50), 2),
+                "sma200": round(float(sma200), 2),
+                "rsi": round(float(rsi), 1),
+                "macd_line": round(float(macd_line), 2),
+                "macd_signal": round(float(macd_signal), 2),
+                "macd_bullish": macd_line > macd_signal,
+                "trend_above_50sma": price > sma50,
+                "golden_cross": sma50 > sma200,
+                "annualized_vol_21d": round(float(avg_vol_21d), 1),
+                "1y_return_pct": round(float(yr_return), 1),
+                "rsi_zone": "OVERSOLD" if rsi < 30 else ("OVERBOUGHT" if rsi > 70 else "NEUTRAL"),
+                "vol_regime": "HIGH" if state['garch_volatility'] > 0.025 else ("LOW" if state['garch_volatility'] < 0.015 else "NORMAL"),
+            }
             
         else:
             state["garch_volatility"] = 0.02
             state["lstm_prob"] = 0.5
             state["lstm_uncertainty"] = 0.1
+            state["precomputed"] = {}
 
     except Exception as e:
         print(f"Quant Engine Error: {e}")
         state["garch_volatility"] = 0.025
         state["lstm_prob"] = 0.50
         state["lstm_uncertainty"] = 0.10
+        state["precomputed"] = {}
 
     return state
 
@@ -759,12 +825,34 @@ def node_reasoning_agent(state: AgentState) -> AgentState:
     Constructs the CIO prompt with all quantitative and fundamental data,
     then queries DeepSeek-R1 for chain-of-thought synthesis.
     """
+    pc = state.get('precomputed', {})
+    
+    # Build a rich pre-computed data payload so the LLM does ZERO math
+    precomputed_section = ""
+    if pc:
+        precomputed_section = f"""
+    
+    === PRE-COMPUTED TECHNICAL DASHBOARD (Python-computed, DO NOT recalculate) ===
+    Current Price: ₹{pc.get('price', 'N/A')}
+    SMA-50: ₹{pc.get('sma50', 'N/A')} | SMA-200: ₹{pc.get('sma200', 'N/A')}
+    Price vs SMA-50: {'ABOVE ✅' if pc.get('trend_above_50sma') else 'BELOW ❌'}
+    Golden Cross (SMA50 > SMA200): {'YES ✅' if pc.get('golden_cross') else 'NO ❌ (Death Cross)'}
+    RSI(14): {pc.get('rsi', 'N/A')} → Zone: {pc.get('rsi_zone', 'N/A')}
+    MACD Line: {pc.get('macd_line', 'N/A')} | MACD Signal: {pc.get('macd_signal', 'N/A')} → {'BULLISH ✅' if pc.get('macd_bullish') else 'BEARISH ❌'}
+    21-Day Annualized Volatility: {pc.get('annualized_vol_21d', 'N/A')}%
+    Volatility Regime: {pc.get('vol_regime', 'N/A')}
+    1-Year Return: {pc.get('1y_return_pct', 'N/A')}%
+    ==========================================================================="""
+    
     user_data = f"""
     User Profile: {state['user_profile']}
     Ticker: {state['ticker']}
+    
+    === QUANT ENGINE OUTPUT (Python-computed) ===
     LSTM Probability of Breakout: {state['lstm_prob']*100:.1f}%
     LSTM Uncertainty (Std Dev): ±{state['lstm_uncertainty']*100:.1f}%
     GARCH Predicted 1-Day Volatility: {state['garch_volatility']*100:.2f}%
+    ============================================={precomputed_section}
     
     Live News (Scraped):
     {state['scraped_news']}
