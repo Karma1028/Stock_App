@@ -592,8 +592,12 @@ def query_deepseek_reasoner(system_prompt: str, user_data: str) -> str:
             if r.status_code == 200:
                 lm_models = [m["id"] for m in r.json().get("data", [])]
                 print(f"   [AI] LM Studio models: {lm_models}")
-        except Exception:
-            print("   [AI] LM Studio not reachable — skipping.")
+            else:
+                last_error = f"LM Studio reachable but returned HTTP {r.status_code}"
+                print(f"   [AI] {last_error}")
+        except Exception as e:
+            last_error = f"LM Studio not reachable at {lm_url} (Timeout/Connection Error)"
+            print(f"   [AI] {last_error}")
 
         if lm_models:
             lm_client = OpenAI(base_url=f"{lm_url}/v1", api_key="lm-studio")
@@ -634,6 +638,7 @@ def query_deepseek_reasoner(system_prompt: str, user_data: str) -> str:
                             pass
                 except Exception as e:
                     _lat = int((time.time() - _t0) * 1000)
+                    last_error = str(e)
                     print(f"   [AI] LMStudio/{lm_model} failed: {e}")
                     try:
                         from modules.api_call_log import log_call as _log_call
