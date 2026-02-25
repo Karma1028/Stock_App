@@ -918,15 +918,40 @@ def render_stock_analysis():
                     if impact:
                         st.markdown(impact)
             else:
-                # Fallback — direct single call
-                with st.spinner("🧠 AI analyzing..."):
-                    try:
-                        verdict = query_deepseek_reasoner(
-                            "You are a CIO. Give a concise BUY/HOLD/SELL verdict with conviction (1-10), "
-                            "2-line thesis, 3 risks, position size, stop-loss, and 3-month target.", summary)
-                        st.markdown(verdict)
-                    except Exception as e2:
-                        st.error(f"AI analysis unavailable: {e2}")
+                # Fallback — stream live verdict
+                sys_prompt = "You are a CIO. Give a concise BUY/HOLD/SELL verdict with conviction (1-10), 2-line thesis, 3 risks, position size, stop-loss, and 3-month target."
+                st.markdown("#### ⚖️ Live CIO Verdict")
+                
+                status_container = st.status("🧠 **CIO is analyzing...**", expanded=True)
+                thought_placeholder = status_container.empty()
+                main_placeholder = st.empty()
+                
+                thinking_buf = ""
+                content_buf = ""
+                
+                from agentic_backend import stream_deepseek_reasoner
+                
+                try:
+                    for chunk in stream_deepseek_reasoner(sys_prompt, summary):
+                        ctype = chunk.get("type")
+                        cdelta = chunk.get("delta", "")
+                        
+                        if ctype == "reasoning":
+                            thinking_buf += cdelta
+                            thought_placeholder.markdown(f"*{thinking_buf}*")
+                        elif ctype == "content":
+                            if thinking_buf and status_container.state == "running":
+                                status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                            content_buf += cdelta
+                            main_placeholder.markdown(content_buf)
+                            
+                    if status_container.state == "running":
+                        if thinking_buf:
+                            status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                        else:
+                            status_container.empty()
+                except Exception as e2:
+                    st.error(f"AI analysis unavailable: {e2}")
         else:
             st.info("AI verdict requires `agentic_backend.py` with OpenRouter API key.")
 

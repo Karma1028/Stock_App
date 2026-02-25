@@ -835,39 +835,76 @@ def render_robo_advisor():
                             if text:
                                 st.markdown(f"### {title}\n{text}")
                 else:
-                    with st.spinner("DeepSeek synthesizing CIO verdict..."):
-                        system = """You are a senior CIO at an institutional fund. Based on the quantitative data provided,
-                        give a concise verdict: BUY/HOLD/SELL with conviction level (1-10).
-                        Include: (1) 2-line thesis, (2) 3 key risks, (3) position sizing recommendation,
-                        (4) stop-loss level, (5) 3-month price target range. Be specific with numbers."""
-                        verdict = query_deepseek_reasoner(system, summary_data)
-                        
-                        from agentic_backend import parse_thinking_block
-                        thinking_text, final_verdict = parse_thinking_block(verdict)
-                        
-                        if thinking_text:
-                            with st.expander("🧠 View CIO Thought Process"):
-                                st.caption(thinking_text)
-                                
-                        st.markdown(final_verdict)
-        except Exception:
-            with st.spinner("DeepSeek synthesizing CIO verdict..."):
-                try:
                     system = """You are a senior CIO at an institutional fund. Based on the quantitative data provided,
                     give a concise verdict: BUY/HOLD/SELL with conviction level (1-10).
                     Include: (1) 2-line thesis, (2) 3 key risks, (3) position sizing recommendation,
                     (4) stop-loss level, (5) 3-month price target range. Be specific with numbers."""
-                    verdict = query_deepseek_reasoner(system, summary_data)
                     
-                    from agentic_backend import parse_thinking_block
-                    thinking_text, final_verdict = parse_thinking_block(verdict)
+                    from agentic_backend import stream_deepseek_reasoner
+                    st.markdown("#### ⚖️ Live CIO Verdict")
                     
-                    if thinking_text:
-                        with st.expander("🧠 View CIO Thought Process"):
-                            st.caption(thinking_text)
+                    status_container = st.status("🧠 **CIO is analyzing data...**", expanded=True)
+                    thought_placeholder = status_container.empty()
+                    main_placeholder = st.empty()
+                    
+                    thinking_buf = ""
+                    content_buf = ""
+                    
+                    for chunk in stream_deepseek_reasoner(system, summary_data):
+                        ctype = chunk.get("type")
+                        cdelta = chunk.get("delta", "")
+                        
+                        if ctype == "reasoning":
+                            thinking_buf += cdelta
+                            thought_placeholder.markdown(f"*{thinking_buf}*")
+                        elif ctype == "content":
+                            if thinking_buf and status_container.state == "running":
+                                status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                            content_buf += cdelta
+                            main_placeholder.markdown(content_buf)
                             
-                    st.markdown(final_verdict)
-                except Exception as e:
+                    if status_container.state == "running":
+                        if thinking_buf:
+                            status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                        else:
+                            status_container.empty()
+                    
+        except Exception:
+            try:
+                system = """You are a senior CIO at an institutional fund. Based on the quantitative data provided,
+                give a concise verdict: BUY/HOLD/SELL with conviction level (1-10).
+                Include: (1) 2-line thesis, (2) 3 key risks, (3) position sizing recommendation,
+                (4) stop-loss level, (5) 3-month price target range. Be specific with numbers."""
+                
+                from agentic_backend import stream_deepseek_reasoner
+                st.markdown("#### ⚖️ Live CIO Verdict")
+                
+                status_container = st.status("🧠 **CIO is analyzing data...**", expanded=True)
+                thought_placeholder = status_container.empty()
+                main_placeholder = st.empty()
+                
+                thinking_buf = ""
+                content_buf = ""
+                
+                for chunk in stream_deepseek_reasoner(system, summary_data):
+                    ctype = chunk.get("type")
+                    cdelta = chunk.get("delta", "")
+                    
+                    if ctype == "reasoning":
+                        thinking_buf += cdelta
+                        thought_placeholder.markdown(f"*{thinking_buf}*")
+                    elif ctype == "content":
+                        if thinking_buf and status_container.state == "running":
+                            status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                        content_buf += cdelta
+                        main_placeholder.markdown(content_buf)
+                        
+                if status_container.state == "running":
+                    if thinking_buf:
+                        status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                    else:
+                        status_container.empty()
+            except Exception as e:
                     st.error(f"AI Verdict generation failed: {e}")
     else:
         st.info("AI verdict requires `agentic_backend.py` with OpenRouter API key configured.")

@@ -1,20 +1,14 @@
 {
   "date": "2026-02-25",
-  "total_calls": 724,
-  "successful_calls": 5,
+  "total_calls": 725,
+  "successful_calls": 6,
   "failed_calls": 719,
-  "input_tokens": 920,
-  "output_tokens": 1143,
+  "input_tokens": 1450,
+  "output_tokens": 1985,
   "keys_exhausted": 109,
   "last_model": "qwen3-vl-4b",
   "last_error": "Key-2 error code: 429 - {'",
   "call_history": [
-    {
-      "time": "14:01",
-      "success": false,
-      "model": "mistral-small-3.1-24",
-      "tokens": 0
-    },
     {
       "time": "14:01",
       "success": false,
@@ -308,6 +302,12 @@
       "success": false,
       "model": "gemma-3-27b-it",
       "tokens": 0
+    },
+    {
+      "time": "17:43",
+      "success": true,
+      "model": "qwen3-vl-4b",
+      "tokens": 1372
     }
   ],
   "model_usage": {
@@ -326,6 +326,6 @@
     "deepseek-chat-v3-0324": 51,
     "llama-3.3-70b-instruct": 64,
     "llama-3.3-70b-versatile": 2,
-    "qwen3-vl-4b": 3
+    "qwen3-vl-4b": 4
   }
 }

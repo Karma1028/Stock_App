@@ -657,6 +657,119 @@ def query_deepseek_reasoner(system_prompt: str, user_data: str) -> str:
 
 
 # ==========================================
+# 3b. DEEPSEEK REASONER ENGINE (STREAMING)
+# ==========================================
+
+def stream_deepseek_reasoner(system_prompt: str, user_data: str):
+    """
+    Streaming version of query_deepseek_reasoner.
+    Yields dicts with format: {"type": "content"|"reasoning", "delta": str}
+    Falls back across tiers exactly like the synchronous version.
+    """
+    try:
+        from openai import OpenAI
+    except ImportError:
+        yield {"type": "content", "delta": "[OpenAI SDK not installed] Cannot query AI."}
+        return
+
+    # Enforce thinking tags for ALL AI queries if not natively streaming reasoning
+    if "<think>" not in system_prompt:
+        system_prompt = system_prompt.rstrip() + "\n\nTHINKING PROCESS (MANDATORY):\nBefore you write the final response, you MUST wrap your scratchpad analytical thinking inside <think> ... </think> tags."
+
+    _selected_tier = "auto"
+    try:
+        import streamlit as _st
+        _selected_tier = _st.session_state.get("ai_tier", "auto")
+    except Exception:
+        pass
+
+    import time
+    last_error = "Unknown error"
+
+    # --- TIER 3: LM STUDIO (We prioritize this to match user request for local streaming) ---
+    if _selected_tier in ("auto", "lmstudio"):
+        try:
+            from config import Config
+            lm_url = Config.LM_STUDIO_URL
+        except Exception:
+            lm_url = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
+
+        if lm_url:
+            lm_models = []
+            try:
+                import requests as _req
+                r = _req.get(f"{lm_url}/v1/models", timeout=3)
+                if r.status_code == 200:
+                    lm_models = [m["id"] for m in r.json().get("data", [])]
+            except Exception:
+                pass
+
+            if lm_models:
+                lm_client = OpenAI(base_url=f"{lm_url}/v1", api_key="lm-studio")
+                for lm_model in lm_models:
+                    try:
+                        print(f"   [AI-Stream] LMStudio → {lm_model}...")
+                        stream = lm_client.chat.completions.create(
+                            model=lm_model,
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_data}
+                            ],
+                            stream=True,
+                            timeout=60
+                        )
+                        for chunk in stream:
+                            choice = chunk.choices[0]
+                            if hasattr(choice.delta, 'reasoning_content') and choice.delta.reasoning_content:
+                                yield {"type": "reasoning", "delta": choice.delta.reasoning_content}
+                            elif choice.delta.content:
+                                yield {"type": "content", "delta": choice.delta.content}
+                        return  # Exit after successful stream
+                    except Exception as e:
+                        print(f"   [AI-Stream] LMStudio/{lm_model} failed: {e}")
+                        last_error = str(e)
+                        continue
+
+    # --- TIER 2: GROQ ---
+    if _selected_tier in ("auto", "groq"):
+        try:
+            from config import Config
+            groq_key = Config.GROQ_API_KEY
+            groq_models = Config.GROQ_MODELS
+        except Exception:
+            groq_key = os.getenv("GROQ_API_KEY", "")
+            groq_models = ["llama-3.3-70b-versatile"]
+            
+        if groq_key:
+            groq_client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=groq_key)
+            for gmodel in groq_models:
+                try:
+                    print(f"   [AI-Stream] Groq → {gmodel}...")
+                    stream = groq_client.chat.completions.create(
+                        model=gmodel,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_data}
+                        ],
+                        stream=True,
+                        timeout=30
+                    )
+                    for chunk in stream:
+                        delta = chunk.choices[0].delta.content if chunk.choices and chunk.choices[0].delta.content else ""
+                        if delta:
+                            yield {"type": "content", "delta": delta}
+                    return
+                except Exception as e:
+                    last_error = str(e)
+                    continue
+
+    # --- IF ALL FAILS ---
+    yield {"type": "content", "delta": f"[AI Error] Streaming failed. Last error: {last_error}"}
+
+# ==========================================
+
+
+# ==========================================
 # 5. LANGGRAPH ORCHESTRATOR
 # ==========================================
 
