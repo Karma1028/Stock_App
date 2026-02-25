@@ -50,6 +50,10 @@ class StockDataManager:
         """
         Ensures symbol is valid for yfinance.
         """
+        # Special handling for Tata Motors due to NSE issues
+        if "TATAMOTORS" in symbol and "NS" in symbol:
+             return symbol.replace(".NS", ".BO")
+             
         if not symbol.endswith(".NS") and not symbol.endswith(".BO"):
              # Simple heuristic, user can provide full ticker
              return f"{symbol}.NS"

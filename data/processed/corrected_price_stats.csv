@@ -1,0 +1,2 @@
+Ticker,Total Trading Days,Date Range,Price Min,Price Max,Current Price,Avg Volume,Mean Daily Ret (%),Daily Std (%),Ann Return (%),Ann Volatility (%),Sharpe Ratio,Skewness,Kurtosis (Excess),Max Drawdown (%),Calmar Ratio,Sortino Ratio,Positive Days,Negative Days,Avg Gain,Avg Loss,Gain/Loss Ratio
+Stitched (TMPV.BO pre + TMCV.NS post),1482,2020-01-01 to 2026-02-23,32.55,579.37,479.80,"2,395,515",0.1116,2.5484,28.12,40.46,0.5343,0.4304,6.5573,-69.39,0.4052,0.7657,772 (52.1%),705 (47.6%),1.7764%,-1.7108%,1.0383

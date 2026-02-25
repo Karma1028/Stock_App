@@ -1,0 +1,8 @@
+ticker,desc,rows,start,end,close_min,close_max,adj_min,adj_max,last_close
+TATAMOTORS.NS,NSE original,0,,,,,,,
+TATAMOTORS.BO,BSE original,0,,,,,,,
+TTM,ADR NYSE,0,,,,,,,
+TMCV.NS,Post-demerger CV NSE,73,2025-11-12,2026-02-24,317.6,498.15,317.6,498.15,475.15
+TMCV.BO,Post-demerger CV BSE,64,2025-11-24,2026-02-24,318.4,497.95,318.4,497.95,475.8
+TMPV.NS,Post-demerger PV NSE,90,2025-10-15,2026-02-24,337.85,417.0,337.85,417.0,376.5
+TMPV.BO,Post-demerger PV BSE,1501,2020-01-01,2026-02-24,65.3,1162.25,64.34,1152.34,377.05

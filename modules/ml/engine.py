@@ -1,10 +1,22 @@
+
 import pandas as pd
 import numpy as np
-
 import pickle
 from config import Config
 from datetime import datetime
 import os
+
+# Define standard features expected by the model
+FEATURE_COLS = [
+    'Returns_1d', 'Returns_5d', 'Returns_21d', 'Log_Returns',
+    'Vol_21d', 'MA_21d',
+    'SMA_50', 'SMA_200',
+    'MACD', 'MACD_Signal', 'MACD_Diff',
+    'RSI',
+    'BB_High', 'BB_Low', 'ATR',
+    'Vol_Change', 'Vol_MA_20', 'Vol_Z',
+    'sentiment_score'
+]
 
 class MLEngine:
     def __init__(self, model_name="lgb_model_global.pkl"):
@@ -13,34 +25,31 @@ class MLEngine:
         
     def prepare_data(self, df):
         """
-        Prepares data for training/prediction.
-        Drops NaNs created by lagging/rolling.
+        Prepares data for training or prediction by selecting features.
         """
-        # Features to use
-        feature_cols = [
-            'Returns_1d', 'Returns_5d', 'Returns_21d', 'Log_Returns',
-            'Vol_21d', 'MA_21d',
-            'SMA_50', 'SMA_200', 'MACD', 'MACD_Signal', 'MACD_Diff',
-            'RSI', 'BB_High', 'BB_Low', 'ATR',
-            'Vol_Change', 'Vol_Z',
-            'DayOfWeek', 'Month',
-            'sentiment_score', 'sentiment_volatility'
-        ]
-        
         # Ensure columns exist
-        available_cols = [c for c in feature_cols if c in df.columns]
+        available_cols = [c for c in FEATURE_COLS if c in df.columns]
         
+        if not available_cols:
+            return pd.DataFrame(), None # Return empty if no features match
+            
         data = df[available_cols].copy()
         data.replace([np.inf, -np.inf], np.nan, inplace=True)
         
-        # If training, we need Target
+        # If training, we need Target (Target_5d)
+        target = None
         if 'Target_5d' in df.columns:
             target = df['Target_5d']
             # Align data and target (drop NaNs)
+            # Use intersection of indices where both are valid
             valid_idx = data.dropna().index.intersection(target.dropna().index)
-            return data.loc[valid_idx], target.loc[valid_idx]
-        
-        return data.dropna(), None
+            data = data.loc[valid_idx]
+            target = target.loc[valid_idx]
+        else:
+            # Prediction mode: just drop NaNs in features
+            data = data.dropna()
+            
+        return data, target
 
     def train_model(self, df, model_type="xgboost"):
         """
@@ -54,7 +63,6 @@ class MLEngine:
             return None
         
         if y is None:
-            # Target (Target_5d) is essential for training. If missing, we cannot proceed.
             print("No target (Target_5d) found in data. Cannot train.")
             return None
         
@@ -64,43 +72,55 @@ class MLEngine:
         y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
         
         if model_type == "xgboost":
-            import xgboost as xgb
-            model = xgb.XGBRegressor(
-                objective='reg:squarederror',
-                n_estimators=500,
-                learning_rate=0.05,
-                max_depth=6,
-                early_stopping_rounds=10
-            )
-            model.fit(
-                X_train, y_train,
-                eval_set=[(X_test, y_test)],
-                verbose=False
-            )
+            try:
+                import xgboost as xgb
+                model = xgb.XGBRegressor(
+                    objective='reg:squarederror',
+                    n_estimators=500,
+                    learning_rate=0.05,
+                    max_depth=6,
+                    early_stopping_rounds=10
+                )
+                model.fit(
+                    X_train, y_train,
+                    eval_set=[(X_test, y_test)],
+                    verbose=False
+                )
+            except ImportError:
+                print("XGBoost not installed. Skipping.")
+                return None
             
         else: # LightGBM
-            params = {
-                'objective': 'regression',
-                'metric': 'rmse',
-                'boosting_type': 'gbdt',
-                'num_leaves': 31,
-                'learning_rate': 0.05,
-                'feature_fraction': 0.9
-            }
-            
-            import lightgbm as lgb
-            train_data = lgb.Dataset(X_train, label=y_train)
-            valid_data = lgb.Dataset(X_test, label=y_test, reference=train_data)
-            
-            model = lgb.train(
-                params,
-                train_data,
-                num_boost_round=100,
-                valid_sets=[valid_data],
-                callbacks=[lgb.early_stopping(stopping_rounds=10)]
-            )
+            try:
+                import lightgbm as lgb
+                params = {
+                    'objective': 'regression',
+                    'metric': 'rmse',
+                    'boosting_type': 'gbdt',
+                    'num_leaves': 31,
+                    'learning_rate': 0.05,
+                    'feature_fraction': 0.9,
+                    'verbosity': -1
+                }
+                
+                train_data = lgb.Dataset(X_train, label=y_train)
+                valid_data = lgb.Dataset(X_test, label=y_test, reference=train_data)
+                
+                model = lgb.train(
+                    params,
+                    train_data,
+                    num_boost_round=100,
+                    valid_sets=[valid_data],
+                    callbacks=[lgb.early_stopping(stopping_rounds=10)]
+                )
+            except ImportError:
+                print("LightGBM not installed. Skipping.")
+                return None
         
         # Save model
+        if not self.models_dir.exists():
+             self.models_dir.mkdir(parents=True, exist_ok=True)
+
         with open(self.model_file, 'wb') as f:
             pickle.dump(model, f)
             
@@ -130,10 +150,14 @@ class MLEngine:
         try:
             # XGBoost (sklearn API)
             preds = model.predict(X)
-        except:
+        except Exception:
             # LightGBM (native API) might need different input? 
             # lgb.train returns a Booster, which accepts numpy or DF.
-            preds = model.predict(X)
+            try:
+                preds = model.predict(X)
+            except Exception as e:
+                print(f"Prediction error: {e}")
+                return None
             
         return pd.Series(preds, index=X.index)
 
@@ -144,23 +168,36 @@ class MLEngine:
         2. Technical Strength (RSI, MACD)
         3. Sentiment Score
         """
+        if df.empty or predictions is None or predictions.empty:
+            return {
+                "combined_score": 50.0,
+                "prediction_score": 50.0,
+                "technical_score": 50.0,
+                "sentiment_score": 50.0,
+                "predicted_return_pct": 0.0
+            }
+
         # Get latest row
         latest = df.iloc[-1]
-        pred_return = predictions.iloc[-1]
-        
+        try:
+             pred_return = predictions.iloc[-1]
+        except:
+             pred_return = 0
+
         # 1. Prediction Score (Normalize -5% to +5% -> 0 to 100)
         # Make it more aggressive: 1% return -> High Score
         # Sigmoid-like scaling centered at 0
-        # 0% -> 50
-        # +2% -> ~80
-        # -2% -> ~20
         score_scaling = 1500 # Multiplier for return
         pred_score = 50 + (pred_return * score_scaling)
         pred_score = np.clip(pred_score, 0, 100)
         
         # 2. Technical Score
         rsi = latest.get('RSI', 50)
+        if pd.isna(rsi): rsi = 50
+        
         macd_diff = latest.get('MACD_Diff', 0)
+        if pd.isna(macd_diff): macd_diff = 0
+        
         sma_50 = latest.get('SMA_50', 0)
         sma_200 = latest.get('SMA_200', 0)
         
@@ -177,6 +214,8 @@ class MLEngine:
         
         # 3. Sentiment Score (-1 to 1 -> 0 to 100)
         sent = latest.get('sentiment_score', 0)
+        if pd.isna(sent): sent = 0
+        
         # Boost sentiment impact
         sent_score = (sent + 1) / 2 * 100
         if sent > 0.1:

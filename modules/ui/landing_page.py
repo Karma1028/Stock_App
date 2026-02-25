@@ -1,69 +1,99 @@
 import streamlit as st
-from modules.ui.styles import apply_custom_style
 
 def render_landing_page():
-    # Hero Section
+    # ── HERO SECTION ──
     st.markdown("""
-        <div style="text-align: center; padding: 60px 20px; background: radial-gradient(circle at center, rgba(59, 130, 246, 0.15) 0%, rgba(10, 14, 23, 0) 70%);">
-            <h1 style="font-size: 4rem !important; background: linear-gradient(to right, #60A5FA, #A78BFA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px;">
-                Intelligent Market Research
-            </h1>
-            <p style="font-size: 1.2rem; color: #94A3B8; max-width: 600px; margin: 0 auto 40px auto;">
-                Next-generation stock analysis powered by AI. Get deep financial insights, real-time sentiment, and institutional-grade tools.
-            </p>
+    <div class="hero-section">
+        <div class="hero-title">Institutional Quant Terminal</div>
+        <div class="hero-subtitle">
+            Harness the power of institutional-grade analytics, AI predictions, and
+            quantitative strategies — all in one platform built for Indian equities.
         </div>
+    </div>
     """, unsafe_allow_html=True)
 
-    # Search Logic (Visual only, actual navigation happens via Sidebar for now due to Streamlit limitations)
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
-        st.info("👈 Use the **Sidebar** to Select a Company or Navigate to Tools")
-    
-    st.markdown("---")
-
-    # Features Grid
+    # ── FEATURE CARDS ──
     c1, c2, c3 = st.columns(3)
-    
+
     with c1:
         st.markdown("""
-        <div class="st-card" style="height: 100%;">
-            <h3 style="color: #60A5FA;">📊 Advanced Charting</h3>
-            <p style="color: #94A3B8;">Interactive price charts with 50+ technical indicators and overlay capabilities.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with c2:
-        st.markdown("""
-        <div class="st-card" style="height: 100%;">
-            <h3 style="color: #A78BFA;">🤖 AI Analyst</h3>
-            <p style="color: #94A3B8;">Get instant executive summaries, visual trend analysis, and conversational insights.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with c3:
-        st.markdown("""
-        <div class="st-card" style="height: 100%;">
-            <h3 style="color: #34D399;">💰 Quant Planner</h3>
-            <p style="color: #94A3B8;">Build robust portfolios with AI-driven backtesting and risk management.</p>
+        <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <h3>Real-Time Dashboard</h3>
+            <p style="color:#94a3b8;">Track market pulse, top gainers, and sector performance with live data.</p>
+            <div style="margin-top:12px; font-size:0.8rem; color:#64748b;">→ Navigate to <b>Dashboard</b></div>
         </div>
         """, unsafe_allow_html=True)
 
-    # Market Highlights Ticker (Mockup)
-    st.markdown("---")
-    st.subheader("🔥 Trending Now")
-    
-    cols = st.columns(4)
-    trends = [
-        {"sym": "RELIANCE", "change": "+2.4%", "color": "#10B981"},
-        {"sym": "HDFCBANK", "change": "-0.8%", "color": "#EF4444"},
-        {"sym": "TATASTEEL", "change": "+1.2%", "color": "#10B981"},
-        {"sym": "INFY", "change": "+0.5%", "color": "#10B981"},
-    ]
-    
-    for i, trend in enumerate(trends):
-        cols[i].markdown(f"""
-        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; text-align: center;">
-            <div style="font-weight: 700; color: white;">{trend['sym']}</div>
-            <div style="color: {trend['color']}; font-weight: 600;">{trend['change']}</div>
+    with c2:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">🤖</div>
+            <h3>AI Deep Reports</h3>
+            <p style="color:#94a3b8;">9-section institutional analysis: technicals, financials, peer comparison, ML scoring, and AI verdict.</p>
+            <div style="margin-top:12px; font-size:0.8rem; color:#64748b;">→ Navigate to <b>Deep Report</b></div>
         </div>
         """, unsafe_allow_html=True)
+
+    with c3:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <h3>Quant Backtester</h3>
+            <p style="color:#94a3b8;">Backtest Momentum, Mean Reversion, and Volatility Breakout strategies across any stock universe.</p>
+            <div style="margin-top:12px; font-size:0.8rem; color:#64748b;">→ Navigate to <b>Quant Engine</b></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ── HOW IT WORKS — Pipeline Steps ──
+    st.markdown("### ⚙️ How It Works")
+    st.markdown("> *From raw market data to actionable insights — the pipeline behind every analysis.*")
+
+    s1, s2, s3, s4 = st.columns(4)
+    steps = [
+        ("1", "📡 Data Ingest", "Live prices, fundamentals, and news via yfinance + Google RSS"),
+        ("2", "🧮 Feature Engineering", "50+ technical indicators, volatility regimes, GARCH models"),
+        ("3", "🤖 ML Scoring", "LightGBM + ensemble signals produce a 0–100 conviction score"),
+        ("4", "📋 Verdict", "AI synthesizes everything into a BUY / HOLD / SELL recommendation"),
+    ]
+    for col, (num, title, desc) in zip([s1, s2, s3, s4], steps):
+        with col:
+            st.markdown(f"""
+            <div class="pipeline-step">
+                <div class="step-number">{num}</div>
+                <h4 style="color:white; margin:0 0 6px;">{title}</h4>
+                <p style="font-size:0.82rem; color:#94a3b8; margin:0;">{desc}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ── WHY CHOOSE ──
+    col_info, col_stats = st.columns([3, 2])
+    with col_info:
+        st.markdown("### 🏛️ Why Choose This Terminal?")
+        st.markdown("""
+- **Institutional Grade** — Built with Python, PyTorch, Plotly — the same stack used by hedge funds.
+- **Data-Driven** — All insights backed by rigorous quantitative analysis, not opinion.
+- **Transparent** — We show the probability, risk, and logic behind every AI prediction.
+- **Holistic** — Combines technicals, fundamentals, news sentiment, and macro factors.
+        """)
+
+    with col_stats:
+        st.markdown("### 📈 Platform Stats")
+        ps1, ps2 = st.columns(2)
+        ps1.metric("Stocks Covered", "1,973+", help="NSE EQUITY.csv universe")
+        ps2.metric("AI Models", "3", help="LightGBM, GARCH, DeepSeek-R1")
+        ps3, ps4 = st.columns(2)
+        ps3.metric("Strategies", "4", help="Momentum, Mean Reversion, Vol Breakout, AI Composite")
+        ps4.metric("Indicators", "50+", help="RSI, MACD, Bollinger, ATR, Kelly, VaR, etc.")
+
+    # ── FOOTER ──
+    st.markdown("""
+    <div class="footer">
+        Institutional Quant Terminal v3.0 • Built with Streamlit + Plotly + PyTorch<br>
+        © 2026 • For educational and research purposes only
+    </div>
+    """, unsafe_allow_html=True)

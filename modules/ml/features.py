@@ -16,16 +16,28 @@ class FeatureEngineer:
             return df
 
         # Handle MultiIndex (Bulk Data)
+        # Handle MultiIndex (Bulk Data)
         if isinstance(df.columns, pd.MultiIndex):
-            # Process each ticker separately
             processed_dfs = []
-            tickers = df.columns.levels[0]
+            
+            # Determine structure: (Price, Ticker) or (Ticker, Price)
+            # yfinance usually returns (Price, Ticker) columns
+            if 'Close' in df.columns.get_level_values(0):
+                # Format: (Price, Ticker) -> Iterate tickers in level 1
+                tickers = df.columns.get_level_values(1).unique()
+                is_price_first = True
+            else:
+                # Format: (Ticker, Price) -> Iterate tickers in level 0
+                tickers = df.columns.get_level_values(0).unique()
+                is_price_first = False
             
             for ticker in tickers:
                 try:
                     # Extract single ticker df
-                    # Handle yfinance structure: (Ticker, PriceType)
-                    single_df = df[ticker].copy()
+                    if is_price_first:
+                        single_df = df.xs(ticker, axis=1, level=1).copy()
+                    else:
+                        single_df = df[ticker].copy()
                     
                     # Ensure we have OHLCV
                     if 'Close' not in single_df.columns:
@@ -36,9 +48,7 @@ class FeatureEngineer:
                     
                     # Merge Sentiment if available
                     if sentiment_df is not None and not sentiment_df.empty:
-                        # Filter for this ticker if sentiment_df has ticker column, 
-                        # but for now assuming sentiment_df is passed per ticker or we merge on date
-                        # If sentiment_df is global (all tickers), we need a ticker column
+                        # Assuming sentiment_df is global or handled outside
                         pass 
                     
                     # Add Ticker column for later use
@@ -60,6 +70,10 @@ class FeatureEngineer:
         Internal method to compute features for a single dataframe.
         """
         df = df.copy()
+        
+        # Drop Adj Close if it exists (causes dropna issues if all NaN)
+        if 'Adj Close' in df.columns:
+            df = df.drop(columns=['Adj Close'])
         
         # 1. Price Features
         df['Returns_1d'] = df['Close'].pct_change()

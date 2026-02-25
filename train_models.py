@@ -18,7 +18,7 @@ def train_global_model():
     fe = FeatureEngineer()
     ns = NewsScraper()
     # Initialize with global model name
-    ml = MLEngine(model_name="xgb_model_global.pkl")
+    ml = MLEngine(model_name="xgb_regressor_v5.pkl")
     
     tickers = dm.get_stock_list()
     print(f"Found {len(tickers)} stocks to train on.")

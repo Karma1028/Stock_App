@@ -42,5 +42,11 @@ frontend/build/
 # Data (Sensitive or Large)
 data/raw/
 data/cache/
+data/api_logs/
+data/api_cache/
 *.log
 node_modules
+
+# Agent/Tool directories
+.agent/
+.gemini/

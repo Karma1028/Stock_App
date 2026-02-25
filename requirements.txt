@@ -12,5 +12,7 @@ feedparser
 textblob
 requests
 openai
+transformers
+torch
 fastapi
 uvicorn
