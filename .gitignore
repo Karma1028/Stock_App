@@ -54,3 +54,32 @@ node_modules
 # Large data files
 data/all_stocks_news_consolidated.csv
 Tata_Motors_Complete_Report.*
+
+
+# Root-level generator scripts and temp files
+_scan_nifty.py
+chart_definitions.py
+compile_generated_charts.py
+create_v3_resources.py
+execute_notebook_charts.py
+fetch_complete_data.py
+fetch_data_v2.py
+fix_and_train.py
+generate_*.py
+inject_phase_cells.py
+train_*.py
+update_report_script.py
+git_tracked_files.txt
+
+# Generated reports, figures, and old test directories
+Data_Science_Interview_Materials/
+report/
+reports/
+figures_gen/
+notebook_generators/
+tests/
+*.pdf
+PROJECT_DOCUMENTATION.md
+RESUME_PROJECT_DETAILS.md
+Step_by_Step_Recreation_Guide.*
+YouTube_Comments_Consolidated.xlsx
