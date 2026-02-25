@@ -163,6 +163,7 @@ def render_stock_analysis():
         info = st.session_state.cached_info
         df_feat = st.session_state.get('cached_df_feat', df.copy())
         live_data = st.session_state.get('cached_live_data', {})
+        yf_ticker = st.session_state.get('cached_yf_ticker', None)
     else:
         # Fetch fresh data
         with st.spinner(f"Loading data for **{selected_company}**..."):
@@ -185,11 +186,11 @@ def render_stock_analysis():
         except Exception:
             df_feat = df.copy()
 
-        # ── Cache in session_state for other pages ──
         st.session_state.cached_df = df
         st.session_state.cached_info = info
         st.session_state.cached_df_feat = df_feat
         st.session_state.cached_live_data = live_data
+        st.session_state.cached_yf_ticker = yf_ticker
         st.session_state.cache_ticker = selected_company
 
     # Ensure sentiment_score column exists for ML model (required feature)

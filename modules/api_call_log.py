@@ -71,7 +71,7 @@ def log_call(
             pass
 
 
-def read_today_logs(limit: int = 200) -> list[dict]:
+def read_today_logs(limit: int = 200, provider: str = "all") -> list[dict]:
     """Read today's log entries, most recent first. Returns up to `limit` entries."""
     path = _today_log_path()
     entries = []
@@ -82,7 +82,20 @@ def read_today_logs(limit: int = 200) -> list[dict]:
                     line = line.strip()
                     if line:
                         try:
-                            entries.append(json.loads(line))
+                            entry = json.loads(line)
+                            
+                            # Filter by provider
+                            if provider == "openrouter":
+                                if not entry.get("key", "").startswith("Key-"):
+                                    continue
+                            elif provider == "groq":
+                                if not entry.get("model_full", "").startswith("groq/"):
+                                    continue
+                            elif provider == "lmstudio":
+                                if not entry.get("model_full", "").startswith("lm/"):
+                                    continue
+                                    
+                            entries.append(entry)
                         except Exception:
                             pass
     except Exception:
@@ -90,9 +103,9 @@ def read_today_logs(limit: int = 200) -> list[dict]:
     return entries[-limit:][::-1]   # most recent first
 
 
-def get_log_summary() -> dict:
+def get_log_summary(provider: str = "all") -> dict:
     """Return a quick summary of today's calls for the sidebar badge."""
-    logs = read_today_logs(limit=5000)
+    logs = read_today_logs(limit=5000, provider=provider)
     total = len(logs)
     ok = sum(1 for e in logs if e.get("status") == "success")
     rate_limited = sum(1 for e in logs if "rate" in e.get("status", ""))

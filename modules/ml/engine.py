@@ -19,7 +19,7 @@ FEATURE_COLS = [
 ]
 
 class MLEngine:
-    def __init__(self, model_name="lgb_model_global.pkl"):
+    def __init__(self, model_name="xgb_regressor_v5.pkl"):
         self.models_dir = Config.MODELS_DIR
         self.model_file = self.models_dir / model_name
         

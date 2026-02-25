@@ -200,6 +200,7 @@ def render_robo_advisor():
         df = st.session_state.cached_df
         info = st.session_state.cached_info
         df_feat = st.session_state.get('cached_df_feat', df.copy())
+        yf_ticker = st.session_state.get('cached_yf_ticker', None)
     else:
         # Fetch fresh data
         with st.spinner(f"⏳ Building comprehensive analysis for **{ticker}** — fetching price data, financials, and computing features..."):
@@ -220,10 +221,10 @@ def render_robo_advisor():
             if 'sentiment_score' not in df_feat.columns:
                 df_feat['sentiment_score'] = 0.0
 
-            # Cache for other pages
             st.session_state.cached_df = df
             st.session_state.cached_info = info
             st.session_state.cached_df_feat = df_feat
+            st.session_state.cached_yf_ticker = yf_ticker
             st.session_state.cache_ticker = ticker
 
     company_name = _safe_get(info, 'longName', ticker.replace('.NS', ''))

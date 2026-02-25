@@ -58,7 +58,7 @@ def show_sidebar():
     tier_choice = st.sidebar.selectbox(
         "AI Tier",
         tier_options,
-        index=0,
+        index=3,  # Local LLM as default main source
         help="Auto = tries OpenRouter → Groq → LM Studio. Or force one tier."
     )
     # Map to a simple string for the backend
@@ -224,10 +224,25 @@ def show_sidebar():
     # ════════════════════════════════════════════════════════
     try:
         from modules.api_call_log import read_today_logs, get_log_summary
-        log_summary = get_log_summary()
+        
+        # Determine filter based on selected tier
+        current_tier = st.session_state.get("ai_tier", "auto")
+        provider_filter = "all"
+        log_title = "📋 API Call Log"
+        if current_tier == "lmstudio":
+            provider_filter = "lmstudio"
+            log_title = "💻 Local LLM Log"
+        elif current_tier == "groq":
+            provider_filter = "groq"
+            log_title = "🚀 Groq API Log"
+        elif current_tier == "openrouter":
+            provider_filter = "openrouter"
+            log_title = "🌐 OpenRouter Log"
+            
+        log_summary = get_log_summary(provider=provider_filter)
         total_logged = log_summary["total"]
 
-        with st.sidebar.expander(f"📋 API Call Log  [{total_logged}]", expanded=False):
+        with st.sidebar.expander(f"{log_title}  [{total_logged}]", expanded=False):
             if total_logged == 0:
                 st.caption("No API calls logged today yet.")
             else:
@@ -243,7 +258,7 @@ def show_sidebar():
                 )
                 st.markdown(summary_html, unsafe_allow_html=True)
 
-                logs = read_today_logs(limit=50)
+                logs = read_today_logs(limit=50, provider=provider_filter)
                 STATUS_ICONS = {
                     "success": "✅", "rate_limited": "⏳",
                     "auth_error": "🔐", "error": "❌", "empty": "⚪",

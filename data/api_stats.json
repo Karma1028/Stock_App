@@ -1,330 +1,331 @@
 {
   "date": "2026-02-25",
-  "total_calls": 666,
-  "successful_calls": 1,
-  "failed_calls": 665,
-  "input_tokens": 56,
-  "output_tokens": 73,
-  "keys_exhausted": 96,
-  "last_model": "llama-3.3-70b-versatile",
-  "last_error": "Key-4 error code: 429 - {'",
+  "total_calls": 724,
+  "successful_calls": 5,
+  "failed_calls": 719,
+  "input_tokens": 920,
+  "output_tokens": 1143,
+  "keys_exhausted": 109,
+  "last_model": "qwen3-vl-4b",
+  "last_error": "Key-2 error code: 429 - {'",
   "call_history": [
     {
-      "time": "11:14",
+      "time": "14:01",
       "success": false,
-      "model": "qwen3-30b-a3b",
+      "model": "mistral-small-3.1-24",
       "tokens": 0
     },
     {
-      "time": "11:14",
-      "success": false,
-      "model": "qwen3-235b-a22b",
-      "tokens": 0
-    },
-    {
-      "time": "11:14",
-      "success": false,
-      "model": "llama-3.1-nemotron-7",
-      "tokens": 0
-    },
-    {
-      "time": "11:14",
+      "time": "14:01",
       "success": false,
       "model": "deepseek-r1-0528",
       "tokens": 0
     },
     {
-      "time": "11:14",
+      "time": "14:01",
       "success": false,
-      "model": "llama-3.3-70b-instru",
+      "model": "qwen3-235b-a22b",
       "tokens": 0
     },
     {
-      "time": "11:14",
+      "time": "14:01",
       "success": false,
-      "model": "llama-4-maverick",
+      "model": "gemma-3-27b-it",
       "tokens": 0
     },
     {
-      "time": "11:14",
+      "time": "14:01",
       "success": false,
-      "model": "deepseek-chat-v3-032",
+      "model": "deepseek-r1-0528",
       "tokens": 0
     },
     {
-      "time": "11:14",
+      "time": "14:01",
+      "success": false,
+      "model": "qwen3-235b-a22b",
+      "tokens": 0
+    },
+    {
+      "time": "14:01",
+      "success": false,
+      "model": "gemma-3-27b-it",
+      "tokens": 0
+    },
+    {
+      "time": "14:02",
       "success": false,
       "model": "phi-4-reasoning",
       "tokens": 0
     },
     {
-      "time": "11:14",
-      "success": false,
-      "model": "llama-4-scout",
-      "tokens": 0
-    },
-    {
-      "time": "11:14",
+      "time": "14:02",
       "success": false,
       "model": "gemini-2.0-flash-exp",
       "tokens": 0
     },
     {
-      "time": "11:14",
+      "time": "14:02",
       "success": false,
-      "model": "qwen3-30b-a3b",
+      "model": "gemma-3-27b-it",
       "tokens": 0
     },
     {
-      "time": "11:14",
+      "time": "14:02",
+      "success": false,
+      "model": "llama-4-maverick",
+      "tokens": 0
+    },
+    {
+      "time": "14:02",
       "success": false,
       "model": "qwen3-235b-a22b",
       "tokens": 0
     },
     {
-      "time": "11:14",
-      "success": false,
-      "model": "llama-3.1-nemotron-7",
-      "tokens": 0
-    },
-    {
-      "time": "11:14",
-      "success": false,
-      "model": "deepseek-r1-0528",
-      "tokens": 0
-    },
-    {
-      "time": "11:14",
+      "time": "14:02",
       "success": false,
       "model": "llama-3.3-70b-instru",
       "tokens": 0
     },
     {
-      "time": "11:15",
+      "time": "14:02",
+      "success": false,
+      "model": "phi-4-reasoning",
+      "tokens": 0
+    },
+    {
+      "time": "14:02",
+      "success": false,
+      "model": "gemini-2.0-flash-exp",
+      "tokens": 0
+    },
+    {
+      "time": "14:02",
+      "success": false,
+      "model": "gemma-3-27b-it",
+      "tokens": 0
+    },
+    {
+      "time": "14:02",
+      "success": false,
+      "model": "llama-4-maverick",
+      "tokens": 0
+    },
+    {
+      "time": "14:02",
+      "success": false,
+      "model": "qwen3-235b-a22b",
+      "tokens": 0
+    },
+    {
+      "time": "14:02",
       "success": false,
       "model": "llama-3.3-70b-instru",
       "tokens": 0
     },
     {
-      "time": "11:15",
+      "time": "14:02",
+      "success": false,
+      "model": "phi-4-reasoning",
+      "tokens": 0
+    },
+    {
+      "time": "14:02",
+      "success": false,
+      "model": "gemini-2.0-flash-exp",
+      "tokens": 0
+    },
+    {
+      "time": "14:02",
+      "success": false,
+      "model": "gemma-3-27b-it",
+      "tokens": 0
+    },
+    {
+      "time": "14:02",
+      "success": false,
+      "model": "llama-4-maverick",
+      "tokens": 0
+    },
+    {
+      "time": "14:02",
+      "success": false,
+      "model": "qwen3-235b-a22b",
+      "tokens": 0
+    },
+    {
+      "time": "14:02",
       "success": false,
       "model": "llama-3.3-70b-instru",
       "tokens": 0
     },
     {
-      "time": "11:15",
+      "time": "14:02",
       "success": false,
-      "model": "llama-4-scout",
+      "model": "phi-4-reasoning",
       "tokens": 0
     },
     {
-      "time": "11:15",
+      "time": "14:02",
       "success": false,
-      "model": "deepseek-r1-0528",
+      "model": "gemini-2.0-flash-exp",
       "tokens": 0
     },
     {
-      "time": "11:15",
-      "success": false,
-      "model": "llama-3.3-70b-instru",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "llama-4-scout",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "deepseek-r1-0528",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "qwen3-coder",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "llama-4-scout",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "deepseek-r1-0528",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "qwen3-coder",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "qwen3-coder",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "llama-4-scout",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "deepseek-r1-0528",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "qwen3-coder",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "llama-4-scout",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "deepseek-r1-0528",
-      "tokens": 0
-    },
-    {
-      "time": "11:15",
-      "success": false,
-      "model": "qwen3-coder",
-      "tokens": 0
-    },
-    {
-      "time": "11:54",
-      "success": false,
-      "model": "deepseek-r1-0528",
-      "tokens": 0
-    },
-    {
-      "time": "11:54",
-      "success": false,
-      "model": "qwen3-235b-a22b",
-      "tokens": 0
-    },
-    {
-      "time": "11:54",
+      "time": "14:02",
       "success": false,
       "model": "gemma-3-27b-it",
       "tokens": 0
     },
     {
-      "time": "11:54",
-      "success": false,
-      "model": "deepseek-r1-0528",
-      "tokens": 0
-    },
-    {
-      "time": "11:54",
-      "success": false,
-      "model": "qwen3-235b-a22b",
-      "tokens": 0
-    },
-    {
-      "time": "11:54",
-      "success": false,
-      "model": "gemma-3-27b-it",
-      "tokens": 0
-    },
-    {
-      "time": "11:54",
-      "success": false,
-      "model": "deepseek-r1-0528",
-      "tokens": 0
-    },
-    {
-      "time": "11:54",
-      "success": false,
-      "model": "qwen3-235b-a22b",
-      "tokens": 0
-    },
-    {
-      "time": "11:54",
-      "success": false,
-      "model": "gemma-3-27b-it",
-      "tokens": 0
-    },
-    {
-      "time": "11:54",
-      "success": false,
-      "model": "deepseek-r1-0528",
-      "tokens": 0
-    },
-    {
-      "time": "11:54",
-      "success": false,
-      "model": "qwen3-235b-a22b",
-      "tokens": 0
-    },
-    {
-      "time": "11:54",
-      "success": false,
-      "model": "gemma-3-27b-it",
-      "tokens": 0
-    },
-    {
-      "time": "11:55",
-      "success": false,
-      "model": "gemma-3-27b-it",
-      "tokens": 0
-    },
-    {
-      "time": "11:55",
-      "success": false,
-      "model": "gemma-3-27b-it",
-      "tokens": 0
-    },
-    {
-      "time": "11:55",
-      "success": false,
-      "model": "gemma-3-27b-it",
-      "tokens": 0
-    },
-    {
-      "time": "11:55",
-      "success": false,
-      "model": "gemma-3-27b-it",
-      "tokens": 0
-    },
-    {
-      "time": "11:55",
+      "time": "14:02",
       "success": true,
       "model": "llama-3.3-70b-versat",
-      "tokens": 129
+      "tokens": 155
+    },
+    {
+      "time": "14:03",
+      "success": false,
+      "model": "phi-4-reasoning",
+      "tokens": 0
+    },
+    {
+      "time": "14:03",
+      "success": false,
+      "model": "gemini-2.0-flash-exp",
+      "tokens": 0
+    },
+    {
+      "time": "14:03",
+      "success": false,
+      "model": "gemma-3-27b-it",
+      "tokens": 0
+    },
+    {
+      "time": "14:03",
+      "success": false,
+      "model": "phi-4-reasoning",
+      "tokens": 0
+    },
+    {
+      "time": "14:03",
+      "success": false,
+      "model": "gemini-2.0-flash-exp",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "gemma-3-27b-it",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "phi-4-reasoning",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "gemini-2.0-flash-exp",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "gemma-3-27b-it",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "llama-4-maverick",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "qwen3-235b-a22b",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "llama-3.3-70b-instru",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "phi-4-reasoning",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "gemini-2.0-flash-exp",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "gemma-3-27b-it",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "llama-4-maverick",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "qwen3-235b-a22b",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "llama-3.3-70b-instru",
+      "tokens": 0
+    },
+    {
+      "time": "14:04",
+      "success": true,
+      "model": "qwen3-vl-4b",
+      "tokens": 219
+    },
+    {
+      "time": "14:04",
+      "success": true,
+      "model": "qwen3-vl-4b",
+      "tokens": 221
+    },
+    {
+      "time": "14:04",
+      "success": false,
+      "model": "gemma-3-27b-it",
+      "tokens": 0
     }
   ],
   "model_usage": {
     "qwen3-next-80b-a3b-instruct": 8,
     "qwen3-coder": 43,
-    "deepseek-r1-0528": 62,
-    "qwen3-235b-a22b": 63,
-    "gemma-3-27b-it": 40,
-    "mistral-small-3.1-24b-instruct": 42,
+    "deepseek-r1-0528": 66,
+    "qwen3-235b-a22b": 72,
+    "gemma-3-27b-it": 53,
+    "mistral-small-3.1-24b-instruct": 44,
     "qwen3-30b-a3b": 43,
-    "llama-4-maverick": 56,
+    "llama-4-maverick": 61,
     "llama-4-scout": 48,
-    "phi-4-reasoning": 41,
+    "phi-4-reasoning": 49,
     "llama-3.1-nemotron-70b-instruct": 54,
-    "gemini-2.0-flash-exp": 55,
+    "gemini-2.0-flash-exp": 63,
     "deepseek-chat-v3-0324": 51,
-    "llama-3.3-70b-instruct": 59,
-    "llama-3.3-70b-versatile": 1
+    "llama-3.3-70b-instruct": 64,
+    "llama-3.3-70b-versatile": 2,
+    "qwen3-vl-4b": 3
   }
 }
