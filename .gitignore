@@ -50,3 +50,7 @@ node_modules
 # Agent/Tool directories
 .agent/
 .gemini/
+
+# Large data files
+data/all_stocks_news_consolidated.csv
+Tata_Motors_Complete_Report.*
