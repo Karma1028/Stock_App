@@ -818,8 +818,9 @@ def render_robo_advisor():
                 full_verdict = "\n\n".join(verdict_parts) if verdict_parts else "No analysis available."
                 display_with_animation(full_verdict, delay=0.4)
             else:
-                with st.spinner("🧠 AI analyzing all dimensions (single call)..."):
-                    analysis = prefetch_stock_analysis(st.session_state.get('global_ticker', ticker), summary_data)
+                status_container = st.status("🧠 **CIO is analyzing all dimensions...**", expanded=True)
+                thought_placeholder = status_container.empty()
+                analysis = prefetch_stock_analysis(st.session_state.get('global_ticker', ticker), summary_data, status_container=status_container, thought_placeholder=thought_placeholder)
                 if analysis:
                     v = analysis.get('quick_verdict', {})
                     verdict_text = v.get('summary', f"**{v.get('action', 'N/A')}** — {v.get('thesis', '')}")

@@ -59,11 +59,12 @@ def get_cached_analysis(ticker):
     return None
 
 
-def prefetch_stock_analysis(ticker, stock_summary, news_text=""):
+def prefetch_stock_analysis(ticker, stock_summary, news_text="", status_container=None, thought_placeholder=None):
     """
     Generate all AI analysis sections in a SINGLE API call.
     Caches result in session_state for instant retrieval.
     Returns the parsed analysis dict or None on failure.
+    Accepts status containers to live-stream the thinking process to the UI.
     """
     # Check cache first
     cache_key = f"ai_analysis_{ticker}"
@@ -71,7 +72,7 @@ def prefetch_stock_analysis(ticker, stock_summary, news_text=""):
         return st.session_state[cache_key]
     
     try:
-        from agentic_backend import query_deepseek_reasoner
+        from agentic_backend import query_deepseek_reasoner, stream_deepseek_reasoner
     except ImportError:
         return None
     
@@ -82,22 +83,70 @@ def prefetch_stock_analysis(ticker, stock_summary, news_text=""):
     
     system = (
         "You are an institutional-grade financial AI. "
-        "Respond with ONLY valid JSON — no markdown, no code blocks, no explanation. "
+        "Respond with ONLY valid JSON — no markdown, no explanation. "
         "Be specific with numbers, prices, and percentages."
     )
     
     try:
-        raw = query_deepseek_reasoner(system, prompt)
+        thinking_buf = ""
+        content_buf = ""
+        
+        if status_container and thought_placeholder:
+            in_think_block = False
+            for chunk in stream_deepseek_reasoner(system, prompt):
+                ctype = chunk.get("type")
+                cdelta = chunk.get("delta", "")
+                
+                if ctype == "reasoning":
+                    thinking_buf += cdelta
+                    thought_placeholder.markdown(f"*{thinking_buf}*")
+                elif ctype == "content":
+                    if "<think>" in cdelta:
+                        in_think_block = True
+                        cdelta = cdelta.replace("<think>", "")
+                    
+                    if "</think>" in cdelta:
+                        in_think_block = False
+                        parts = cdelta.split("</think>")
+                        thinking_buf += parts[0]
+                        thought_placeholder.markdown(f"*{thinking_buf}*")
+                        if status_container.state == "running":
+                            status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                        if len(parts) > 1:
+                            content_buf += parts[1]
+                        continue
+                        
+                    if in_think_block:
+                        thinking_buf += cdelta
+                        thought_placeholder.markdown(f"*{thinking_buf}*")
+                    else:
+                        if thinking_buf and status_container.state == "running":
+                            status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                        content_buf += cdelta
+            raw = content_buf
+        else:
+            raw = query_deepseek_reasoner(system, prompt)
+            
         if not raw or raw.startswith("[AI Error]"):
             return None
         
-        # Clean up response — strip markdown code blocks if present
+        # 1. Clean up response — strip markdown code blocks and raw <think> tags if they bypassed the stream
         cleaned = raw.strip()
+        import re
+        if "<think>" in cleaned:
+            cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL).strip()
+            
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
         if cleaned.endswith("```"):
             cleaned = cleaned[:-3]
         cleaned = cleaned.strip()
+        
+        # 2. Extract strictly the JSON part between { and }
+        start_idx = cleaned.find("{")
+        end_idx = cleaned.rfind("}")
+        if start_idx != -1 and end_idx != -1 and end_idx >= start_idx:
+            cleaned = cleaned[start_idx:end_idx+1]
         
         # Parse JSON
         analysis = json.loads(cleaned)
@@ -106,13 +155,13 @@ def prefetch_stock_analysis(ticker, stock_summary, news_text=""):
         st.session_state[cache_key] = analysis
         return analysis
         
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as jde:
         # If JSON parsing fails, try to extract the verdict text as-is
         fallback = {
             "quick_verdict": {
                 "action": "N/A",
                 "conviction": 0,
-                "summary": raw if raw else "AI analysis failed to parse.",
+                "summary": f"JSON Error: {jde}\nRAW DATA:\n{cleaned[:300]}...",
                 "risks": [],
                 "position_size": "N/A",
                 "stop_loss": "N/A",
@@ -120,7 +169,7 @@ def prefetch_stock_analysis(ticker, stock_summary, news_text=""):
                 "thesis": ""
             },
             "deep_report": {
-                "executive_summary": raw if raw else "Analysis unavailable.",
+                "executive_summary": "Analysis unavailable due to non-JSON format.",
                 "technical_analysis": "",
                 "fundamental_analysis": "",
                 "risk_assessment": "",

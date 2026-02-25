@@ -836,8 +836,9 @@ def render_stock_analysis():
                 from modules.ai_prefetch import get_cached_analysis, prefetch_stock_analysis
                 analysis = get_cached_analysis(selected_company)
                 if not analysis:
-                    with st.spinner("🧠 AI analyzing all dimensions..."):
-                        analysis = prefetch_stock_analysis(selected_company, summary)
+                    status_container = st.status("🧠 **CIO is analyzing all dimensions...**", expanded=True)
+                    thought_placeholder = status_container.empty()
+                    analysis = prefetch_stock_analysis(selected_company, summary, status_container=status_container, thought_placeholder=thought_placeholder)
             except Exception:
                 pass
 
