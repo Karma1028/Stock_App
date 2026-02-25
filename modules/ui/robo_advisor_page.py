@@ -841,7 +841,15 @@ def render_robo_advisor():
                         Include: (1) 2-line thesis, (2) 3 key risks, (3) position sizing recommendation,
                         (4) stop-loss level, (5) 3-month price target range. Be specific with numbers."""
                         verdict = query_deepseek_reasoner(system, summary_data)
-                        st.markdown(verdict)
+                        
+                        from agentic_backend import parse_thinking_block
+                        thinking_text, final_verdict = parse_thinking_block(verdict)
+                        
+                        if thinking_text:
+                            with st.expander("🧠 View CIO Thought Process"):
+                                st.caption(thinking_text)
+                                
+                        st.markdown(final_verdict)
         except Exception:
             with st.spinner("DeepSeek synthesizing CIO verdict..."):
                 try:
@@ -850,7 +858,15 @@ def render_robo_advisor():
                     Include: (1) 2-line thesis, (2) 3 key risks, (3) position sizing recommendation,
                     (4) stop-loss level, (5) 3-month price target range. Be specific with numbers."""
                     verdict = query_deepseek_reasoner(system, summary_data)
-                    st.markdown(verdict)
+                    
+                    from agentic_backend import parse_thinking_block
+                    thinking_text, final_verdict = parse_thinking_block(verdict)
+                    
+                    if thinking_text:
+                        with st.expander("🧠 View CIO Thought Process"):
+                            st.caption(thinking_text)
+                            
+                    st.markdown(final_verdict)
                 except Exception as e:
                     st.error(f"AI Verdict generation failed: {e}")
     else:

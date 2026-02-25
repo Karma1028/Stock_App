@@ -942,6 +942,31 @@ def get_system_prompt_template() -> str:
     """Returns the raw DeepSeek system prompt template for inspection."""
     return DEEPSEEK_SYSTEM_PROMPT
 
+def parse_thinking_block(response_text: str) -> tuple[str, str]:
+    """
+    Extracts the <think> block from an LLM response if present.
+    Returns: (thinking_text, final_answer)
+    """
+    if not isinstance(response_text, str):
+        return "", str(response_text)
+        
+    import re
+    # Look for anything inside <think>...</think> including linebreaks
+    match = re.search(r'<think>(.*?)</think>\s*(.*)', response_text, re.DOTALL | re.IGNORECASE)
+    
+    if match:
+        thinking_text = match.group(1).strip()
+        final_answer = match.group(2).strip()
+        return thinking_text, final_answer
+        
+    # Some models produce thoughts without closing tags if interrupted
+    match_open = re.search(r'<think>(.*)', response_text, re.DOTALL | re.IGNORECASE)
+    if match_open:
+        thinking_text = match_open.group(1).strip()
+        # Assume it's all thinking if no closing tag found
+        return thinking_text, "*(Thought process interrupted before final answer)*"
+        
+    return "", response_text.strip()
 
 if __name__ == "__main__":
     print("=" * 60)

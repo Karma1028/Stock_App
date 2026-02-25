@@ -151,7 +151,17 @@ def render_deep_dive_page():
                     interpretation = query_deepseek_reasoner(ai_prompt, compact_data)
                     # Check if AI returned an actual response (not an error)
                     if interpretation and not interpretation.startswith("[AI Error]") and not interpretation.startswith("[Error]") and not interpretation.startswith("[OpenAI"):
+                        from agentic_backend import parse_thinking_block
+                        thinking_text, final_answer = parse_thinking_block(interpretation)
+                        
                         ai_success = True
+                        
+                        # Render thoughts tucked away
+                        if thinking_text:
+                            with st.expander("🧠 View AI Thought Process"):
+                                st.caption(thinking_text)
+                                
+                        # Render final clean output
                         st.markdown(f"""
                         <div style="background:rgba(30,41,59,0.6); border-left:3px solid #818cf8; 
                              padding:16px 20px; border-radius:8px; margin:10px 0;">
@@ -159,7 +169,7 @@ def render_deep_dive_page():
                                 🤖 AI INTERPRETATION — {display_name}
                             </div>
                             <div style="color:#e2e8f0; font-size:0.88rem; line-height:1.7;">
-                                {interpretation}
+                                {final_answer}
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
