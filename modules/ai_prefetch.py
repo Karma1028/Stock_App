@@ -59,6 +59,8 @@ def get_cached_analysis(ticker):
     return None
 
 
+from modules.ui.thought_formatter import parse_and_format_thought
+
 def prefetch_stock_analysis(ticker, stock_summary, news_text="", status_container=None, thought_placeholder=None):
     """
     Generate all AI analysis sections in a SINGLE API call.
@@ -98,18 +100,34 @@ def prefetch_stock_analysis(ticker, stock_summary, news_text="", status_containe
                 cdelta = chunk.get("delta", "")
                 
                 if ctype == "reasoning":
+                    # Provider actively flags this as reasoning
                     thinking_buf += cdelta
-                    thought_placeholder.markdown(f"*{thinking_buf}*")
+                    formatted_thought = parse_and_format_thought(thinking_buf)
+                    thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
                 elif ctype == "content":
-                    if "<think>" in cdelta:
+                    # Check for generic thinking tags (DeepSeek/Local LLMs sometimes use these when instructed for JSON)
+                    if "<think>" in cdelta or "<|!|>" in cdelta:
                         in_think_block = True
-                        cdelta = cdelta.replace("<think>", "")
+                        cdelta = cdelta.replace("<think>", "").replace("<|!|>", "")
                     
-                    if "</think>" in cdelta:
+                    if "</think>" in cdelta or "</|!|>" in cdelta or "<|!|>" in cdelta and in_think_block: 
+                        # Some models use <|!|> to close as well.
                         in_think_block = False
-                        parts = cdelta.split("</think>")
+                        
+                        # Handle multi-variate closing tags
+                        if "</think>" in cdelta:
+                            parts = cdelta.split("</think>")
+                        elif "</|!|>" in cdelta:
+                            parts = cdelta.split("</|!|>")
+                        else:
+                            parts = cdelta.split("<|!|>")
+                            
                         thinking_buf += parts[0]
-                        thought_placeholder.markdown(f"*{thinking_buf}*")
+                        
+                        # Format for clean UI presentation mimicking ChatGPT
+                        formatted_thought = parse_and_format_thought(thinking_buf)
+                        thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
+                        
                         if status_container.state == "running":
                             status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
                         if len(parts) > 1:
@@ -118,7 +136,8 @@ def prefetch_stock_analysis(ticker, stock_summary, news_text="", status_containe
                         
                     if in_think_block:
                         thinking_buf += cdelta
-                        thought_placeholder.markdown(f"*{thinking_buf}*")
+                        formatted_thought = parse_and_format_thought(thinking_buf)
+                        thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
                     else:
                         if thinking_buf and status_container.state == "running":
                             status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
@@ -133,8 +152,11 @@ def prefetch_stock_analysis(ticker, stock_summary, news_text="", status_containe
         # 1. Clean up response — strip markdown code blocks and raw <think> tags if they bypassed the stream
         cleaned = raw.strip()
         import re
-        if "<think>" in cleaned:
-            cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL).strip()
+        if "<think>" in cleaned or "<|!|>" in cleaned:
+            cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL)
+            cleaned = re.sub(r'<\|!\|>.*?<\|!\|>', '', cleaned, flags=re.DOTALL)
+            cleaned = re.sub(r'<\|!\|>.*?</\|!\|>', '', cleaned, flags=re.DOTALL)
+            cleaned = cleaned.strip()
             
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]

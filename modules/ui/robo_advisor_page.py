@@ -848,21 +848,51 @@ def render_robo_advisor():
                     thought_placeholder = status_container.empty()
                     main_placeholder = st.empty()
                     
+                    from modules.ui.thought_formatter import parse_and_format_thought
+                    
                     thinking_buf = ""
                     content_buf = ""
                     
+                    in_think_block = False
                     for chunk in stream_deepseek_reasoner(system, summary_data):
                         ctype = chunk.get("type")
                         cdelta = chunk.get("delta", "")
                         
                         if ctype == "reasoning":
                             thinking_buf += cdelta
-                            thought_placeholder.markdown(f"*{thinking_buf}*")
+                            formatted_thought = parse_and_format_thought(thinking_buf)
+                            thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
                         elif ctype == "content":
-                            if thinking_buf and status_container.state == "running":
-                                status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                            content_buf += cdelta
-                            main_placeholder.markdown(content_buf)
+                            if "<think>" in cdelta or "<|!|>" in cdelta:
+                                in_think_block = True
+                                cdelta = cdelta.replace("<think>", "").replace("<|!|>", "")
+                            
+                            if "</think>" in cdelta or "</|!|>" in cdelta or "<|!|>" in cdelta and in_think_block:
+                                in_think_block = False
+                                if "</think>" in cdelta: parts = cdelta.split("</think>")
+                                elif "</|!|>" in cdelta: parts = cdelta.split("</|!|>")
+                                else: parts = cdelta.split("<|!|>")
+                                    
+                                thinking_buf += parts[0]
+                                formatted_thought = parse_and_format_thought(thinking_buf)
+                                thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
+                                
+                                if status_container.state == "running":
+                                    status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                                if len(parts) > 1:
+                                    content_buf += parts[1]
+                                    main_placeholder.markdown(content_buf)
+                                continue
+                            
+                            if in_think_block:
+                                thinking_buf += cdelta
+                                formatted_thought = parse_and_format_thought(thinking_buf)
+                                thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
+                            else:
+                                if thinking_buf and status_container.state == "running":
+                                    status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                                content_buf += cdelta
+                                main_placeholder.markdown(content_buf)
                             
                     if status_container.state == "running":
                         if thinking_buf:
@@ -887,18 +917,46 @@ def render_robo_advisor():
                 thinking_buf = ""
                 content_buf = ""
                 
-                for chunk in stream_deepseek_reasoner(system, summary_data):
-                    ctype = chunk.get("type")
-                    cdelta = chunk.get("delta", "")
-                    
-                    if ctype == "reasoning":
-                        thinking_buf += cdelta
-                        thought_placeholder.markdown(f"*{thinking_buf}*")
-                    elif ctype == "content":
-                        if thinking_buf and status_container.state == "running":
-                            status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                        content_buf += cdelta
-                        main_placeholder.markdown(content_buf)
+                    in_think_block = False
+                    for chunk in stream_deepseek_reasoner(system, summary_data):
+                        ctype = chunk.get("type")
+                        cdelta = chunk.get("delta", "")
+                        
+                        if ctype == "reasoning":
+                            thinking_buf += cdelta
+                            formatted_thought = parse_and_format_thought(thinking_buf)
+                            thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
+                        elif ctype == "content":
+                            if "<think>" in cdelta or "<|!|>" in cdelta:
+                                in_think_block = True
+                                cdelta = cdelta.replace("<think>", "").replace("<|!|>", "")
+                            
+                            if "</think>" in cdelta or "</|!|>" in cdelta or "<|!|>" in cdelta and in_think_block:
+                                in_think_block = False
+                                if "</think>" in cdelta: parts = cdelta.split("</think>")
+                                elif "</|!|>" in cdelta: parts = cdelta.split("</|!|>")
+                                else: parts = cdelta.split("<|!|>")
+                                    
+                                thinking_buf += parts[0]
+                                formatted_thought = parse_and_format_thought(thinking_buf)
+                                thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
+                                
+                                if status_container.state == "running":
+                                    status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                                if len(parts) > 1:
+                                    content_buf += parts[1]
+                                    main_placeholder.markdown(content_buf)
+                                continue
+                            
+                            if in_think_block:
+                                thinking_buf += cdelta
+                                formatted_thought = parse_and_format_thought(thinking_buf)
+                                thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
+                            else:
+                                if thinking_buf and status_container.state == "running":
+                                    status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
+                                content_buf += cdelta
+                                main_placeholder.markdown(content_buf)
                         
                 if status_container.state == "running":
                     if thinking_buf:
