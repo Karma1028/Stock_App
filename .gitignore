@@ -53,7 +53,6 @@ node_modules
 
 # Large data files
 data/all_stocks_news_consolidated.csv
-Tata_Motors_Complete_Report.*
 
 
 # Root-level generator scripts and temp files
@@ -81,5 +80,4 @@ tests/
 *.pdf
 PROJECT_DOCUMENTATION.md
 RESUME_PROJECT_DETAILS.md
-Step_by_Step_Recreation_Guide.*
 YouTube_Comments_Consolidated.xlsx
