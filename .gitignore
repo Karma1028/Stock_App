@@ -78,6 +78,8 @@ figures_gen/
 notebook_generators/
 tests/
 *.pdf
+!Tata_Motors_Deep_Dive_Report.pdf
+!Stock_Market_Alchemist_Magnum_Opus.pdf
 PROJECT_DOCUMENTATION.md
 RESUME_PROJECT_DETAILS.md
 YouTube_Comments_Consolidated.xlsx
