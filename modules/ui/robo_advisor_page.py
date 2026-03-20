@@ -408,7 +408,11 @@ def render_robo_advisor():
     > scan for earnings surprises, regulatory changes, or sector-wide catalysts.*
     """)
 
-    news_items = _fetch_news_fallback(ticker, company_name)
+    from modules.cache_manager import get_cached_simple_news, set_cached_simple_news
+    news_items = get_cached_simple_news(ticker, company_name)
+    if news_items is None:
+        news_items = _fetch_news_fallback(ticker, company_name)
+        set_cached_simple_news(ticker, news_items)
     cols = st.columns(min(len(news_items), 3))
     for i, article in enumerate(news_items[:6]):
         with cols[i % 3]:
@@ -758,14 +762,15 @@ def render_robo_advisor():
     > Each article is analyzed by AI for market impact and directional bias.*
     """)
 
-    with st.spinner("Fetching and analyzing news..."):
-        try:
-            news_articles = fetch_top_news(ticker, max_articles=5)
-            if news_articles:
-                news_articles = analyze_news_with_ai(news_articles, ticker)
+    try:
+        from modules.cache_manager import get_or_fetch_news
+        news_articles = get_or_fetch_news(ticker, max_articles=5, enrich=False)
+        if news_articles:
             render_news_tiles(news_articles)
-        except Exception as e:
-            st.warning(f"News analysis unavailable: {e}")
+        else:
+            st.info("No news articles found.")
+    except Exception as e:
+        st.warning(f"News analysis unavailable: {e}")
 
     # ════════════════════════════════════════════════════════════
     # 10. EXECUTIVE VERDICT
@@ -828,15 +833,23 @@ def render_robo_advisor():
                 full_verdict = "\n\n".join(verdict_parts) if verdict_parts else "No analysis available."
                 display_with_animation(full_verdict, delay=0.4)
             else:
-                status_container = st.status("🧠 **CIO is analyzing all dimensions...**", expanded=True)
-                thought_placeholder = status_container.empty()
-                analysis = prefetch_stock_analysis(st.session_state.get('global_ticker', ticker), summary_data, status_container=status_container, thought_placeholder=thought_placeholder)
+                tab_out, tab_think = st.tabs(["🎯 Final Report", "🧠 AI Thought Process"])
+                
+                with tab_think:
+                    st.caption("Real-time cognitive process from the AI reasoner:")
+                    thought_placeholder = st.empty()
+                with tab_out:
+                    main_placeholder = st.empty()
+                    main_placeholder.info("🧠 CIO is compiling the comprehensive report. Check the 'AI Thought Process' tab for live reasoning...")
+                
+                analysis = prefetch_stock_analysis(st.session_state.get('global_ticker', ticker), summary_data, status_container=None, thought_placeholder=thought_placeholder)
                 if analysis:
                     v = analysis.get('quick_verdict', {})
                     verdict_text = v.get('summary', f"**{v.get('action', 'N/A')}** — {v.get('thesis', '')}")
-                    st.markdown(verdict_text)
                     
                     dr = analysis.get('deep_report', {})
+                    full_report = f"{verdict_text}\n\n"
+                    
                     if any(dr.values()):
                         for section, title in [('executive_summary', '📋 Executive Summary'),
                                                ('technical_analysis', '📊 Technical Analysis'),
@@ -844,25 +857,20 @@ def render_robo_advisor():
                                                ('sector_outlook', '🏭 Sector Outlook')]:
                             text = dr.get(section, '')
                             if text:
-                                st.markdown(f"### {title}\n{text}")
+                                full_report += f"### {title}\n{text}\n\n"
+                                
+                    main_placeholder.markdown(full_report)
                 else:
                     system = """You are a senior CIO at an institutional fund. Based on the quantitative data provided, give a concise verdict: BUY/HOLD/SELL with conviction level (1-10).
                     CRITICAL: You MUST explicitly explain and critique ALL provided ratios, the Balance Sheet, and the Cash Flow details based on the overall fundamental health of the business.
                     Include: (1) 2-line thesis, (2) 3 key risks, (3) fundamental breakdown of the statements, (4) position sizing recommendation, (5) stop-loss & price target."""
                     
                     from agentic_backend import stream_deepseek_reasoner
-                    st.markdown("#### ⚖️ Live CIO Verdict")
-                    
-                    status_container = st.status("🧠 **CIO is analyzing data...**", expanded=True)
-                    thought_placeholder = status_container.empty()
-                    main_placeholder = st.empty()
-                    
                     from modules.ui.thought_formatter import parse_and_format_thought
                     
                     thinking_buf = ""
                     content_buf = ""
                     
-                    in_think_block = False
                     for chunk in stream_deepseek_reasoner(system, summary_data):
                         ctype = chunk.get("type")
                         cdelta = chunk.get("delta", "")
@@ -872,42 +880,8 @@ def render_robo_advisor():
                             formatted_thought = parse_and_format_thought(thinking_buf)
                             thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
                         elif ctype == "content":
-                            if "<think>" in cdelta or "<|!|>" in cdelta:
-                                in_think_block = True
-                                cdelta = cdelta.replace("<think>", "").replace("<|!|>", "")
-                            
-                            if "</think>" in cdelta or "</|!|>" in cdelta or "<|!|>" in cdelta and in_think_block:
-                                in_think_block = False
-                                if "</think>" in cdelta: parts = cdelta.split("</think>")
-                                elif "</|!|>" in cdelta: parts = cdelta.split("</|!|>")
-                                else: parts = cdelta.split("<|!|>")
-                                    
-                                thinking_buf += parts[0]
-                                formatted_thought = parse_and_format_thought(thinking_buf)
-                                thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
-                                
-                                if status_container.state == "running":
-                                    status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                                if len(parts) > 1:
-                                    content_buf += parts[1]
-                                    main_placeholder.markdown(content_buf)
-                                continue
-                            
-                            if in_think_block:
-                                thinking_buf += cdelta
-                                formatted_thought = parse_and_format_thought(thinking_buf)
-                                thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
-                            else:
-                                if thinking_buf and status_container.state == "running":
-                                    status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                                content_buf += cdelta
-                                main_placeholder.markdown(content_buf)
-                            
-                    if status_container.state == "running":
-                        if thinking_buf:
-                            status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                        else:
-                            status_container.empty()
+                            content_buf += cdelta
+                            main_placeholder.markdown(content_buf)
                     
         except Exception:
             try:
@@ -917,16 +891,19 @@ def render_robo_advisor():
                 (4) stop-loss level, (5) 3-month price target range. Be specific with numbers."""
                 
                 from agentic_backend import stream_deepseek_reasoner
-                st.markdown("#### ⚖️ Live CIO Verdict")
+                from modules.ui.thought_formatter import parse_and_format_thought
                 
-                status_container = st.status("🧠 **CIO is analyzing data...**", expanded=True)
-                thought_placeholder = status_container.empty()
-                main_placeholder = st.empty()
+                tab_out, tab_think = st.tabs(["🎯 Final Verdict", "🧠 AI Thought Process"])
+                
+                with tab_think:
+                    st.caption("Real-time cognitive process from the AI reasoner:")
+                    thought_placeholder = st.empty()
+                with tab_out:
+                    main_placeholder = st.empty()
                 
                 thinking_buf = ""
                 content_buf = ""
                 
-                in_think_block = False
                 for chunk in stream_deepseek_reasoner(system, summary_data):
                     ctype = chunk.get("type")
                     cdelta = chunk.get("delta", "")
@@ -936,42 +913,8 @@ def render_robo_advisor():
                         formatted_thought = parse_and_format_thought(thinking_buf)
                         thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
                     elif ctype == "content":
-                        if "<think>" in cdelta or "<|!|>" in cdelta:
-                            in_think_block = True
-                            cdelta = cdelta.replace("<think>", "").replace("<|!|>", "")
-                        
-                        if "</think>" in cdelta or "</|!|>" in cdelta or "<|!|>" in cdelta and in_think_block:
-                            in_think_block = False
-                            if "</think>" in cdelta: parts = cdelta.split("</think>")
-                            elif "</|!|>" in cdelta: parts = cdelta.split("</|!|>")
-                            else: parts = cdelta.split("<|!|>")
-                                
-                            thinking_buf += parts[0]
-                            formatted_thought = parse_and_format_thought(thinking_buf)
-                            thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
-                            
-                            if status_container.state == "running":
-                                status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                            if len(parts) > 1:
-                                content_buf += parts[1]
-                                main_placeholder.markdown(content_buf)
-                            continue
-                        
-                        if in_think_block:
-                            thinking_buf += cdelta
-                            formatted_thought = parse_and_format_thought(thinking_buf)
-                            thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
-                        else:
-                            if thinking_buf and status_container.state == "running":
-                                status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                            content_buf += cdelta
-                            main_placeholder.markdown(content_buf)
-                    
-                if status_container.state == "running":
-                    if thinking_buf:
-                        status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                    else:
-                        status_container.empty()
+                        content_buf += cdelta
+                        main_placeholder.markdown(content_buf)
             except Exception as e:
                 st.error(f"AI Verdict generation failed: {e}")
     else:

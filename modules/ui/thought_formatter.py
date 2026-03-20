@@ -9,9 +9,7 @@ def parse_and_format_thought(raw_text):
         
     lines = raw_text.split('\n')
     
-    # Base dark container
-    html_out = '<div style="background: #0f172a; padding: 16px; border-radius: 8px; border: 1px solid #1e293b; font-family: \\'Inter\\', sans-serif;">'
-    
+    html_out = """<div style="background: #0f172a; padding: 16px; border-radius: 8px; border: 1px solid #1e293b; font-family: 'Inter', sans-serif;">"""
     in_section = False
     
     for i, line in enumerate(lines):

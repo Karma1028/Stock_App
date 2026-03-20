@@ -1,6 +1,6 @@
 # 🏗️ Tata Motors Deep Dive — Step-by-Step Recreation Guide
 
-**Author:** Dnyanesh  
+**Author:** Tuhin Bhattacharya  
 **Date:** February 2025  
 **Project:** Comprehensive Quantitative Analysis of Tata Motors Post-Demerger
 

@@ -53,6 +53,14 @@ node_modules
 
 # Large data files
 data/all_stocks_news_consolidated.csv
+data/all_news_with_content.csv
+data/news_history/
+data/daywise_news/
+data/processed/*.png
+data/processed/*.jpg
+
+# Universal Engine Workspace (large intermediate artifacts)
+Universal_Engine_Workspace/
 
 
 # Root-level generator scripts and temp files

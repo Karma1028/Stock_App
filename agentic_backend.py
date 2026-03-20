@@ -670,6 +670,80 @@ def query_deepseek_reasoner(system_prompt: str, user_data: str) -> str:
 # 3b. DEEPSEEK REASONER ENGINE (STREAMING)
 # ==========================================
 
+def _parse_stream_thinking(raw_stream):
+    """
+    Wraps an AI stream generator, extracting <think>...</think> tags and converting
+    them into 'reasoning' chunks, even if the model outputs them as 'content'.
+    Handles partial tags at chunk boundaries.
+    """
+    buffer = ""
+    in_think = False
+    
+    for chunk in raw_stream:
+        ctype = chunk.get("type")
+        cdelta = chunk.get("delta", "")
+        
+        # If model naturally outputs reasoning chunks, pass them through
+        if ctype == "reasoning":
+            if cdelta:
+                yield {"type": "reasoning", "delta": cdelta}
+            continue
+            
+        if not cdelta:
+            continue
+            
+        buffer += cdelta
+        
+        while buffer:
+            if not in_think:
+                idx = buffer.find("<think>")
+                if idx != -1:
+                    if idx > 0:
+                        yield {"type": "content", "delta": buffer[:idx]}
+                    buffer = buffer[idx + 7:]
+                    in_think = True
+                else:
+                    # Check partial start tag at the end of buffer
+                    partial = False
+                    for i in range(1, 7):
+                        if buffer.endswith("<think>"[:i]):
+                            if len(buffer) > i:
+                                yield {"type": "content", "delta": buffer[:-i]}
+                                buffer = buffer[-i:]
+                            partial = True
+                            break
+                    if not partial:
+                        yield {"type": "content", "delta": buffer}
+                        buffer = ""
+                    else:
+                        break  # Wait for next chunk to resolve partial tag
+            else:
+                idx = buffer.find("</think>")
+                if idx != -1:
+                    if idx > 0:
+                        yield {"type": "reasoning", "delta": buffer[:idx]}
+                    buffer = buffer[idx + 8:]
+                    in_think = False
+                else:
+                    # Check partial end tag
+                    partial = False
+                    for i in range(1, 8):
+                        if buffer.endswith("</think>"[:i]):
+                            if len(buffer) > i:
+                                yield {"type": "reasoning", "delta": buffer[:-i]}
+                                buffer = buffer[-i:]
+                            partial = True
+                            break
+                    if not partial:
+                        yield {"type": "reasoning", "delta": buffer}
+                        buffer = ""
+                    else:
+                        break
+                        
+    if buffer:
+        yield {"type": "reasoning" if in_think else "content", "delta": buffer}
+
+
 def stream_deepseek_reasoner(system_prompt: str, user_data: str):
     """
     Streaming version of query_deepseek_reasoner.
@@ -684,7 +758,7 @@ def stream_deepseek_reasoner(system_prompt: str, user_data: str):
 
     # Enforce thinking tags for ALL AI queries if not natively streaming reasoning
     if "<think>" not in system_prompt:
-        system_prompt = system_prompt.rstrip() + "\n\nTHINKING PROCESS (MANDATORY):\nBefore you write the final response, you MUST wrap your scratchpad analytical thinking inside <think> ... </think> tags."
+        system_prompt = system_prompt.rstrip() + "\\n\\nTHINKING PROCESS (MANDATORY):\\nBefore you write the final response, you MUST wrap your scratchpad analytical thinking inside <think> ... </think> tags."
 
     _selected_tier = "auto"
     try:
@@ -693,98 +767,186 @@ def stream_deepseek_reasoner(system_prompt: str, user_data: str):
     except Exception:
         pass
 
-    import time
+    import time, random
     last_error = "Unknown error"
 
-    # --- TIER 3: LM STUDIO (We prioritize this to match user request for local streaming) ---
-    if _selected_tier in ("auto", "lmstudio"):
-        try:
-            import streamlit as st
-            lm_url = st.session_state.get("lm_studio_url")
-        except Exception:
-            lm_url = None
-            
-        if not lm_url:
+    def _generate_stream():
+        nonlocal last_error
+        # --- TIER 1: OPENROUTER ---
+        if _selected_tier in ("auto", "openrouter"):
             try:
                 from config import Config
-                lm_url = getattr(Config, 'LM_STUDIO_URL', None)
+                api_keys = Config.OPENROUTER_API_KEYS
+                models = Config.AI_MODEL_FALLBACKS
             except Exception:
-                pass
+                api_keys = [os.getenv("OPENROUTER_API_KEY", "")]
+                models = [
+                    "deepseek/deepseek-r1-0528:free",
+                    "qwen/qwen3-next-80b-a3b-instruct:free",
+                    "meta-llama/llama-3.3-70b-instruct:free",
+                ]
+            
+            api_keys = [k for k in api_keys if k]
+            if api_keys:
+                if not hasattr(stream_deepseek_reasoner, '_key_idx'):
+                    stream_deepseek_reasoner._key_idx = 0
+                start_idx = stream_deepseek_reasoner._key_idx % len(api_keys)
+                stream_deepseek_reasoner._key_idx += 1
                 
-        if not lm_url:
-            lm_url = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
+                for attempt in range(2):
+                    if attempt == 1:
+                        time.sleep(5) # Small cooldown for streaming
+                        random.shuffle(models)
+                        
+                    for key_offset in range(len(api_keys)):
+                        key_idx = (start_idx + key_offset) % len(api_keys)
+                        api_key = api_keys[key_idx]
+                        client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+                        
+                        for model in models:
+                            try:
+                                _t0 = time.time()
+                                print(f"   [AI-Stream] OpenRouter → {model}...")
+                                stream = client.chat.completions.create(
+                                    model=model,
+                                    messages=[
+                                        {"role": "system", "content": system_prompt},
+                                        {"role": "user", "content": user_data}
+                                    ],
+                                    stream=True,
+                                    timeout=60
+                                )
+                                # Ensure we received a valid stream before consuming fully
+                                out_text = ""
+                                in_tok = len(system_prompt + user_data) // 4
+                                for chunk in stream:
+                                    choice = chunk.choices[0]
+                                    if hasattr(choice.delta, 'reasoning_content') and choice.delta.reasoning_content:
+                                        out_text += choice.delta.reasoning_content
+                                        yield {"type": "reasoning", "delta": choice.delta.reasoning_content}
+                                    elif choice.delta.content:
+                                        out_text += choice.delta.content
+                                        yield {"type": "content", "delta": choice.delta.content}
+                                out_tok = len(out_text) // 4
+                                _lat = int((time.time() - _t0) * 1000)
+                                _update_api_stats(success=True, model=model, input_tokens=in_tok, output_tokens=out_tok)
+                                try:
+                                    from modules.api_call_log import log_call as _log_call
+                                    _log_call(key_label=f"Key-{key_idx}", model=model, status="success",
+                                              input_tokens=in_tok, output_tokens=out_tok, latency_ms=_lat)
+                                except: pass
+                                return
+                            except Exception as e:
+                                err_str = str(e).lower()
+                                last_error = str(e)[:60]
+                                if any(code in err_str for code in ["401", "402", "403", "429", "rate limit"]):
+                                    break # Switch to next key
+                                continue
 
-        if lm_url:
-            lm_models = []
+        # --- TIER 2: GROQ ---
+        if _selected_tier in ("auto", "groq"):
             try:
-                import requests as _req
-                r = _req.get(f"{lm_url}/v1/models", timeout=3)
-                if r.status_code == 200:
-                    lm_models = [m["id"] for m in r.json().get("data", [])]
+                from config import Config
+                groq_key = Config.GROQ_API_KEY
+                groq_models = Config.GROQ_MODELS
             except Exception:
-                pass
-
-            if lm_models:
-                lm_client = OpenAI(base_url=f"{lm_url}/v1", api_key="lm-studio")
-                for lm_model in lm_models:
+                groq_key = os.getenv("GROQ_API_KEY", "")
+                groq_models = ["llama-3.3-70b-versatile"]
+                
+            if groq_key:
+                groq_client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=groq_key)
+                for gmodel in groq_models:
                     try:
-                        print(f"   [AI-Stream] LMStudio → {lm_model}...")
-                        stream = lm_client.chat.completions.create(
-                            model=lm_model,
+                        _t0 = time.time()
+                        print(f"   [AI-Stream] Groq → {gmodel}...")
+                        stream = groq_client.chat.completions.create(
+                            model=gmodel,
                             messages=[
                                 {"role": "system", "content": system_prompt},
                                 {"role": "user", "content": user_data}
                             ],
                             stream=True,
-                            timeout=60
+                            timeout=30
                         )
+                        out_text = ""
+                        in_tok = len(system_prompt + user_data) // 4
                         for chunk in stream:
-                            choice = chunk.choices[0]
-                            if hasattr(choice.delta, 'reasoning_content') and choice.delta.reasoning_content:
-                                yield {"type": "reasoning", "delta": choice.delta.reasoning_content}
-                            elif choice.delta.content:
-                                yield {"type": "content", "delta": choice.delta.content}
-                        return  # Exit after successful stream
+                            delta = chunk.choices[0].delta.content if chunk.choices and chunk.choices[0].delta.content else ""
+                            if delta:
+                                out_text += delta
+                                yield {"type": "content", "delta": delta}
+                        out_tok = len(out_text) // 4
+                        _lat = int((time.time() - _t0) * 1000)
+                        _update_api_stats(success=True, model=f"groq/{gmodel}", input_tokens=in_tok, output_tokens=out_tok)
+                        try:
+                            from modules.api_call_log import log_call as _log_call
+                            _log_call(key_label="Groq", model=f"groq/{gmodel}", status="success",
+                                      input_tokens=in_tok, output_tokens=out_tok, latency_ms=_lat)
+                        except: pass
+                        return
                     except Exception as e:
-                        print(f"   [AI-Stream] LMStudio/{lm_model} failed: {e}")
-                        last_error = str(e)
+                        last_error = str(e)[:60]
                         continue
 
-    # --- TIER 2: GROQ ---
-    if _selected_tier in ("auto", "groq"):
-        try:
-            from config import Config
-            groq_key = Config.GROQ_API_KEY
-            groq_models = Config.GROQ_MODELS
-        except Exception:
-            groq_key = os.getenv("GROQ_API_KEY", "")
-            groq_models = ["llama-3.3-70b-versatile"]
+        # --- TIER 3: LM STUDIO ---
+        if _selected_tier in ("auto", "lmstudio"):
+            try:
+                import streamlit as st
+                lm_url = st.session_state.get("lm_studio_url")
+            except Exception:
+                lm_url = getattr(Config, 'LM_STUDIO_URL', None) if 'Config' in locals() else None
             
-        if groq_key:
-            groq_client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=groq_key)
-            for gmodel in groq_models:
+            lm_url = lm_url or os.getenv("LM_STUDIO_URL", "http://localhost:1234")
+            if lm_url:
                 try:
-                    print(f"   [AI-Stream] Groq → {gmodel}...")
-                    stream = groq_client.chat.completions.create(
-                        model=gmodel,
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_data}
-                        ],
-                        stream=True,
-                        timeout=30
-                    )
-                    for chunk in stream:
-                        delta = chunk.choices[0].delta.content if chunk.choices and chunk.choices[0].delta.content else ""
-                        if delta:
-                            yield {"type": "content", "delta": delta}
-                    return
-                except Exception as e:
-                    last_error = str(e)
-                    continue
+                    import requests as _req
+                    r = _req.get(f"{lm_url}/v1/models", timeout=3)
+                    lm_models = [m["id"] for m in r.json().get("data", [])] if r.status_code == 200 else []
+                    if lm_models:
+                        lm_client = OpenAI(base_url=f"{lm_url}/v1", api_key="lm-studio")
+                        for lm_model in lm_models:
+                            try:
+                                _t0 = time.time()
+                                print(f"   [AI-Stream] LMStudio → {lm_model}...")
+                                stream = lm_client.chat.completions.create(
+                                    model=lm_model,
+                                    messages=[
+                                        {"role": "system", "content": system_prompt},
+                                        {"role": "user", "content": user_data}
+                                    ],
+                                    stream=True,
+                                    timeout=60
+                                )
+                                out_text = ""
+                                in_tok = len(system_prompt + user_data) // 4
+                                for chunk in stream:
+                                    choice = chunk.choices[0]
+                                    if hasattr(choice.delta, 'reasoning_content') and choice.delta.reasoning_content:
+                                        out_text += choice.delta.reasoning_content
+                                        yield {"type": "reasoning", "delta": choice.delta.reasoning_content}
+                                    elif hasattr(choice.delta, 'content') and choice.delta.content:
+                                        out_text += choice.delta.content
+                                        yield {"type": "content", "delta": choice.delta.content}
+                                out_tok = len(out_text) // 4
+                                _lat = int((time.time() - _t0) * 1000)
+                                _update_api_stats(success=True, model=f"lm/{lm_model}", input_tokens=in_tok, output_tokens=out_tok)
+                                try:
+                                    from modules.api_call_log import log_call as _log_call
+                                    _log_call(key_label="LMStudio", model=f"lm/{lm_model}", status="success",
+                                              input_tokens=in_tok, output_tokens=out_tok, latency_ms=_lat)
+                                except: pass
+                                return
+                            except Exception as e:
+                                last_error = str(e)[:60]
+                                continue
+                except Exception:
+                    pass
 
-    # --- IF ALL FAILS ---
-    yield {"type": "content", "delta": f"[AI Error] Streaming failed. Last error: {last_error}"}
+        # If all fail
+        yield {"type": "content", "delta": f"\\n\\n[AI Error] Streaming failed. Last error: {last_error}"}
+
+    # Wrap raw generator with tag parser
+    yield from _parse_stream_thinking(_generate_stream())
 
 # ==========================================
 

@@ -800,20 +800,15 @@ def render_stock_analysis():
         > Each article is analyzed by AI for market impact and directional bias.*
         """)
 
-        with st.spinner("Fetching and analyzing news..."):
-            try:
-                articles = fetch_top_news(selected_company, max_articles=5)
-                if articles:
-                    # Enrich with full article text via crawl4ai
-                    try:
-                        from modules.data.scrapers.news_analysis import enrich_articles_with_crawl4ai
-                        articles = enrich_articles_with_crawl4ai(articles, max_articles=3)
-                    except Exception:
-                        pass  # crawl4ai optional — continue with title-only
-                    articles = analyze_news_with_ai(articles, selected_company)
+        try:
+            from modules.cache_manager import get_or_fetch_news
+            articles = get_or_fetch_news(selected_company, max_articles=5, enrich=True)
+            if articles:
                 render_news_tiles(articles)
-            except Exception as e:
-                st.warning(f"News analysis unavailable: {e}")
+            else:
+                st.info("No news articles found.")
+        except Exception as e:
+            st.warning(f"News analysis unavailable: {e}")
 
         # AI Verdict — AUTO-TRIGGER on stock selection (no button needed)
         st.markdown("---")
@@ -835,97 +830,112 @@ def render_stock_analysis():
             try:
                 from modules.ai_prefetch import get_cached_analysis, prefetch_stock_analysis
                 analysis = get_cached_analysis(selected_company)
-                if not analysis:
-                    status_container = st.status("🧠 **CIO is analyzing all dimensions...**", expanded=True)
-                    thought_placeholder = status_container.empty()
-                    analysis = prefetch_stock_analysis(selected_company, summary, status_container=status_container, thought_placeholder=thought_placeholder)
+                
+                tab_out, tab_think = st.tabs(["🎯 Final Verdict", "🧠 AI Thought Process"])
+                
+                with tab_think:
+                    st.caption("Real-time cognitive process from the AI reasoner:")
+                    thought_placeholder = st.empty()
+                    if analysis:
+                        thought_placeholder.info("Deep reasoning was cached from a previous run. No real-time thinking process to display.")
+                
+                with tab_out:
+                    if not analysis:
+                        status_container = st.status("🧠 **CIO is analyzing all dimensions...**", expanded=True)
+                        analysis = prefetch_stock_analysis(selected_company, summary, status_container=status_container, thought_placeholder=thought_placeholder)
+                        status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
             except Exception:
                 pass
 
             if analysis and isinstance(analysis, dict):
-                # ── Quick Verdict ──
-                v = analysis.get('quick_verdict', {})
-                action = v.get('action', 'N/A')
-                conviction = v.get('conviction', 'N/A')
-                action_colors = {"BUY": "#4ade80", "SELL": "#f87171", "HOLD": "#fbbf24"}
-                ac = action_colors.get(str(action).upper(), "#94a3b8")
-                
-                st.markdown(f'<div style="display:flex;align-items:center;gap:12px;margin:8px 0;">'
-                            f'<span style="background:{ac};color:#0f172a;padding:6px 18px;border-radius:6px;'
-                            f'font-weight:800;font-size:1.1rem;">{action}</span>'
-                            f'<span style="color:#94a3b8;font-size:0.9rem;">Conviction: <b style="color:#e2e8f0;">'
-                            f'{conviction}/10</b></span></div>', unsafe_allow_html=True)
-                
-                thesis = v.get('thesis', '')
-                if thesis:
-                    st.markdown(f"*{thesis}*")
-                
-                verdict_summary = v.get('summary', '')
-                if verdict_summary:
-                    st.markdown(verdict_summary)
-                
-                # Risks, targets, position
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    risks = v.get('risks', [])
-                    if risks:
-                        st.markdown("**⚠️ Key Risks:**")
-                        for r in risks:
-                            st.markdown(f"- {r}")
-                with col_b:
-                    target = v.get('target_3m', '')
-                    sl = v.get('stop_loss', '')
-                    pos = v.get('position_size', '')
-                    if target or sl or pos:
-                        st.markdown("**📊 Position Guidance:**")
-                        if target: st.markdown(f"- Target (3M): {target}")
-                        if sl: st.markdown(f"- Stop Loss: {sl}")
-                        if pos: st.markdown(f"- Position Size: {pos}")
-                
-                # ── Deep Report ──
-                dr = analysis.get('deep_report', {})
-                if any(dr.values()):
-                    st.markdown("---")
-                    st.markdown("#### 📋 Deep Report")
-                    for section_key, section_title in [
-                        ('executive_summary', '📌 Executive Summary'),
-                        ('technical_analysis', '📈 Technical Analysis'),
-                        ('fundamental_analysis', '💰 Fundamental Analysis'),
-                        ('risk_assessment', '🛡️ Risk Assessment'),
-                        ('sector_outlook', '🏭 Sector Outlook')
-                    ]:
-                        content = dr.get(section_key, '')
-                        if content:
-                            with st.expander(section_title, expanded=(section_key == 'executive_summary')):
-                                st.markdown(content)
-                
-                # ── News Sentiment ──
-                ns = analysis.get('news_sentiment', {})
-                if ns and ns.get('overall'):
-                    st.markdown("---")
-                    overall = ns.get('overall', 'Neutral')
-                    score = ns.get('score', 50)
-                    sent_colors = {"Bullish": "#4ade80", "Bearish": "#f87171", "Neutral": "#fbbf24"}
-                    sc = sent_colors.get(overall, "#94a3b8")
+                with tab_out:
+                    # ── Quick Verdict ──
+                    v = analysis.get('quick_verdict', {})
+                    action = v.get('action', 'N/A')
+                    conviction = v.get('conviction', 'N/A')
+                    action_colors = {"BUY": "#4ade80", "SELL": "#f87171", "HOLD": "#fbbf24"}
+                    ac = action_colors.get(str(action).upper(), "#94a3b8")
+                    
                     st.markdown(f'<div style="display:flex;align-items:center;gap:12px;margin:8px 0;">'
-                                f'<span style="font-size:0.85rem;color:#94a3b8;">📰 News Sentiment:</span>'
-                                f'<span style="color:{sc};font-weight:700;font-size:1rem;">{overall}</span>'
-                                f'<span style="color:#64748b;font-size:0.82rem;">({score}/100)</span></div>',
-                                unsafe_allow_html=True)
-                    themes = ns.get('key_themes', [])
-                    if themes:
-                        st.markdown("**Key Themes:** " + " · ".join(themes))
-                    impact = ns.get('impact_summary', '')
-                    if impact:
-                        st.markdown(impact)
+                                f'<span style="background:{ac};color:#0f172a;padding:6px 18px;border-radius:6px;'
+                                f'font-weight:800;font-size:1.1rem;">{action}</span>'
+                                f'<span style="color:#94a3b8;font-size:0.9rem;">Conviction: <b style="color:#e2e8f0;">'
+                                f'{conviction}/10</b></span></div>', unsafe_allow_html=True)
+                    
+                    thesis = v.get('thesis', '')
+                    if thesis:
+                        st.markdown(f"*{thesis}*")
+                    
+                    verdict_summary = v.get('summary', '')
+                    if verdict_summary:
+                        st.markdown(verdict_summary)
+                    
+                    # Risks, targets, position
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        risks = v.get('risks', [])
+                        if risks:
+                            st.markdown("**⚠️ Key Risks:**")
+                            for r in risks:
+                                st.markdown(f"- {r}")
+                    with col_b:
+                        target = v.get('target_3m', '')
+                        sl = v.get('stop_loss', '')
+                        pos = v.get('position_size', '')
+                        if target or sl or pos:
+                            st.markdown("**📊 Position Guidance:**")
+                            if target: st.markdown(f"- Target (3M): {target}")
+                            if sl: st.markdown(f"- Stop Loss: {sl}")
+                            if pos: st.markdown(f"- Position Size: {pos}")
+                    
+                    # ── Deep Report ──
+                    dr = analysis.get('deep_report', {})
+                    if any(dr.values()):
+                        st.markdown("---")
+                        st.markdown("#### 📋 Deep Report")
+                        for section_key, section_title in [
+                            ('executive_summary', '📌 Executive Summary'),
+                            ('technical_analysis', '📈 Technical Analysis'),
+                            ('fundamental_analysis', '💰 Fundamental Analysis'),
+                            ('risk_assessment', '🛡️ Risk Assessment'),
+                            ('sector_outlook', '🏭 Sector Outlook')
+                        ]:
+                            content = dr.get(section_key, '')
+                            if content:
+                                with st.expander(section_title, expanded=(section_key == 'executive_summary')):
+                                    st.markdown(content)
+                    
+                    # ── News Sentiment ──
+                    ns = analysis.get('news_sentiment', {})
+                    if ns and ns.get('overall'):
+                        st.markdown("---")
+                        overall = ns.get('overall', 'Neutral')
+                        score = ns.get('score', 50)
+                        sent_colors = {"Bullish": "#4ade80", "Bearish": "#f87171", "Neutral": "#fbbf24"}
+                        sc = sent_colors.get(overall, "#94a3b8")
+                        st.markdown(f'<div style="display:flex;align-items:center;gap:12px;margin:8px 0;">'
+                                    f'<span style="font-size:0.85rem;color:#94a3b8;">📰 News Sentiment:</span>'
+                                    f'<span style="color:{sc};font-weight:700;font-size:1rem;">{overall}</span>'
+                                    f'<span style="color:#64748b;font-size:0.82rem;">({score}/100)</span></div>',
+                                    unsafe_allow_html=True)
+                        themes = ns.get('key_themes', [])
+                        if themes:
+                            st.markdown("**Key Themes:** " + " · ".join(themes))
+                        impact = ns.get('impact_summary', '')
+                        if impact:
+                            st.markdown(impact)
             else:
                 # Fallback — stream live verdict
                 sys_prompt = "You are a CIO. Give a concise BUY/HOLD/SELL verdict with conviction (1-10), 2-line thesis, 3 risks, position size, stop-loss, and 3-month target."
                 st.markdown("#### ⚖️ Live CIO Verdict")
                 
-                status_container = st.status("🧠 **CIO is analyzing...**", expanded=True)
-                thought_placeholder = status_container.empty()
-                main_placeholder = st.empty()
+                tab_out, tab_think = st.tabs(["🎯 Final Verdict", "🧠 AI Thought Process"])
+                
+                with tab_think:
+                    st.caption("Real-time cognitive process from the AI reasoner:")
+                    thought_placeholder = st.empty()
+                with tab_out:
+                    main_placeholder = st.empty()
                 
                 thinking_buf = ""
                 content_buf = ""
@@ -941,16 +951,9 @@ def render_stock_analysis():
                             thinking_buf += cdelta
                             thought_placeholder.markdown(f"*{thinking_buf}*")
                         elif ctype == "content":
-                            if thinking_buf and status_container.state == "running":
-                                status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
                             content_buf += cdelta
                             main_placeholder.markdown(content_buf)
                             
-                    if status_container.state == "running":
-                        if thinking_buf:
-                            status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                        else:
-                            status_container.empty()
                 except Exception as e2:
                     st.error(f"AI analysis unavailable: {e2}")
         else:

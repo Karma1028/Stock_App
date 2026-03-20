@@ -93,55 +93,19 @@ def prefetch_stock_analysis(ticker, stock_summary, news_text="", status_containe
         thinking_buf = ""
         content_buf = ""
         
-        if status_container and thought_placeholder:
-            in_think_block = False
+        if thought_placeholder is not None:
             for chunk in stream_deepseek_reasoner(system, prompt):
                 ctype = chunk.get("type")
                 cdelta = chunk.get("delta", "")
                 
                 if ctype == "reasoning":
-                    # Provider actively flags this as reasoning
                     thinking_buf += cdelta
                     formatted_thought = parse_and_format_thought(thinking_buf)
                     thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
                 elif ctype == "content":
-                    # Check for generic thinking tags (DeepSeek/Local LLMs sometimes use these when instructed for JSON)
-                    if "<think>" in cdelta or "<|!|>" in cdelta:
-                        in_think_block = True
-                        cdelta = cdelta.replace("<think>", "").replace("<|!|>", "")
-                    
-                    if "</think>" in cdelta or "</|!|>" in cdelta or "<|!|>" in cdelta and in_think_block: 
-                        # Some models use <|!|> to close as well.
-                        in_think_block = False
-                        
-                        # Handle multi-variate closing tags
-                        if "</think>" in cdelta:
-                            parts = cdelta.split("</think>")
-                        elif "</|!|>" in cdelta:
-                            parts = cdelta.split("</|!|>")
-                        else:
-                            parts = cdelta.split("<|!|>")
-                            
-                        thinking_buf += parts[0]
-                        
-                        # Format for clean UI presentation mimicking ChatGPT
-                        formatted_thought = parse_and_format_thought(thinking_buf)
-                        thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
-                        
-                        if status_container.state == "running":
-                            status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                        if len(parts) > 1:
-                            content_buf += parts[1]
-                        continue
-                        
-                    if in_think_block:
-                        thinking_buf += cdelta
-                        formatted_thought = parse_and_format_thought(thinking_buf)
-                        thought_placeholder.markdown(formatted_thought, unsafe_allow_html=True)
-                    else:
-                        if thinking_buf and status_container.state == "running":
-                            status_container.update(label="🧠 **Analysis Complete**", state="complete", expanded=False)
-                        content_buf += cdelta
+                    content_buf += cdelta
+                    # Note: We do not display the raw JSON content during streaming because 
+                    # it isn't formatted for the user. It will be parsed later.
             raw = content_buf
         else:
             raw = query_deepseek_reasoner(system, prompt)

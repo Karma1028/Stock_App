@@ -1,13 +1,22 @@
 {
-  "date": "2026-02-26",
-  "total_calls": 0,
-  "successful_calls": 0,
+  "date": "2026-03-20",
+  "total_calls": 1,
+  "successful_calls": 1,
   "failed_calls": 0,
-  "input_tokens": 0,
-  "output_tokens": 0,
+  "input_tokens": 510,
+  "output_tokens": 1962,
   "keys_exhausted": 0,
-  "last_model": "None",
+  "last_model": "llama-3.3-70b-versatile",
   "last_error": "",
-  "call_history": [],
-  "model_usage": {}
+  "call_history": [
+    {
+      "time": "13:05",
+      "success": true,
+      "model": "llama-3.3-70b-versat",
+      "tokens": 2472
+    }
+  ],
+  "model_usage": {
+    "llama-3.3-70b-versatile": 1
+  }
 }
