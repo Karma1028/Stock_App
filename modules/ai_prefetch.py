@@ -113,33 +113,36 @@ def prefetch_stock_analysis(ticker, stock_summary, news_text="", status_containe
         if not raw or raw.startswith("[AI Error]"):
             return None
         
-        # 1. Clean up response — strip markdown code blocks and raw <think> tags if they bypassed the stream
+        # 1. Clean up response — strip all thinking tags
         cleaned = raw.strip()
         import re
-        if "<think>" in cleaned or "<|!|>" in cleaned:
-            cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL)
-            cleaned = re.sub(r'<\|!\|>.*?<\|!\|>', '', cleaned, flags=re.DOTALL)
-            cleaned = re.sub(r'<\|!\|>.*?</\|!\|>', '', cleaned, flags=re.DOTALL)
-            cleaned = cleaned.strip()
-            
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
+        
+        # Remove anything inside <think> tags ( DeepSeek-R1 ) or <|!|> ( some other models )
+        cleaned = re.sub(r'<(think|\|!\|)>.*?</\1>', '', cleaned, flags=re.DOTALL + re.IGNORECASE)
+        # Final safety catch for unclosed tags
+        if "<think>" in cleaned.lower():
+            cleaned = cleaned.split("</think>")[-1] if "</think>" in cleaned.lower() else cleaned.split("<think>")[-1]
+        
         cleaned = cleaned.strip()
         
         # 2. Extract strictly the JSON part between { and }
         start_idx = cleaned.find("{")
         end_idx = cleaned.rfind("}")
+        
         if start_idx != -1 and end_idx != -1 and end_idx >= start_idx:
-            cleaned = cleaned[start_idx:end_idx+1]
-        
-        # Parse JSON
-        analysis = json.loads(cleaned)
-        
-        # Cache it
-        st.session_state[cache_key] = analysis
-        return analysis
+            json_text = cleaned[start_idx:end_idx+1]
+            try:
+                analysis = json.loads(json_text)
+                
+                # Cache it
+                st.session_state[cache_key] = analysis
+                return analysis
+            except json.JSONDecodeError as e:
+                print(f"   [Cache] JSON Decode Error: {e}")
+                raise e # Fall through to the handler below
+        else:
+            raise ValueError("No JSON structure found in AI response")
+
         
     except json.JSONDecodeError as jde:
         # If JSON parsing fails, try to extract the verdict text as-is

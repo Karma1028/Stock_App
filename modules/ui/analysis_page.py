@@ -151,19 +151,17 @@ def render_stock_analysis():
     fe = FeatureEngineer()
     ml = MLEngine()
 
-    # ── Check session_state cache first ──
-    cache_hit = (
-        st.session_state.get('cache_ticker') == selected_company
-        and st.session_state.get('cached_df') is not None
-        and st.session_state.get('cached_info') is not None
-    )
-
-    if cache_hit:
-        df = st.session_state.cached_df
-        info = st.session_state.cached_info
-        df_feat = st.session_state.get('cached_df_feat', df.copy())
-        live_data = st.session_state.get('cached_live_data', {})
-        yf_ticker = st.session_state.get('cached_yf_ticker', None)
+    # ── DATA FETCHING (Unified Cache) ──
+    from modules.cache_manager import get_cached_stock_data, set_cached_stock_data
+    
+    bundle = get_cached_stock_data(selected_company, period)
+    
+    if bundle:
+        df = bundle['df']
+        info = bundle['info']
+        df_feat = bundle.get('df_feat', df)
+        live_data = bundle.get('live_data', info)
+        yf_ticker = bundle.get('yf_ticker')
     else:
         # Fetch fresh data
         with st.spinner(f"Loading data for **{selected_company}**..."):
@@ -180,18 +178,28 @@ def render_stock_analysis():
             info = yf_ticker.info or {}
         except Exception:
             info = {}
-
+            
+        # Feature engineering (expensive)
+        df_feat = df.copy()
         try:
-            df_feat = fe._compute_single_ticker_features(df.copy())
-        except Exception:
-            df_feat = df.copy()
+             df_feat = fe._compute_single_ticker_features(df.copy())
+        except Exception: pass
 
+
+        # Cache the whole bundle
+        bundle = {
+            'df': df, 'info': info, 'df_feat': df_feat, 
+            'live_data': live_data, 'yf_ticker': yf_ticker
+        }
+        set_cached_stock_data(selected_company, period, bundle)
+        
+        # Backward compatibility for other modules
+        st.session_state.cache_ticker = selected_company
         st.session_state.cached_df = df
         st.session_state.cached_info = info
         st.session_state.cached_df_feat = df_feat
         st.session_state.cached_live_data = live_data
         st.session_state.cached_yf_ticker = yf_ticker
-        st.session_state.cache_ticker = selected_company
 
     # Ensure sentiment_score column exists for ML model (required feature)
     if 'sentiment_score' not in df_feat.columns:

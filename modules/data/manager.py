@@ -158,9 +158,14 @@ class StockDataManager:
             # Get latest price from history if info is missing currentPrice
             current_price = info.get("currentPrice")
             if not current_price:
-                hist = ticker.history(period="1d")
+                print(f"   [Data] No currentPrice in info for {symbol}, fetching from history...")
+                hist = ticker.history(period="5d")
                 if not hist.empty:
                     current_price = hist["Close"].iloc[-1]
+            
+            if not current_price and not info:
+                 print(f"   [Data] CRITICAL ERROR: No info and no price for {symbol}")
+                 return {}
             
             return {
                 "symbol": symbol,

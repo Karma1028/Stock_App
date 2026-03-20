@@ -46,15 +46,20 @@ def get_or_fetch_news(ticker: str, max_articles: int = 5, enrich: bool = True):
         from modules.data.scrapers.news_analysis import (
             fetch_top_news, analyze_news_with_ai
         )
+        # 1. Fetch headline-only news first (fast)
         articles = fetch_top_news(ticker, max_articles=max_articles)
+        
+        # 2. Only enrich if requested and we have articles
         if articles and enrich:
-            # Optional: enrich with crawl4ai (best-effort)
+            # We skip heavy enrichment for the initial load to keep the UI snappy
+            # unless we're on a deep-dive page that explicitly wants it.
+            # For now, let's at least do the AI categorization but skip crawl4ai
+            # until we have a more robust async way.
             try:
-                from modules.data.scrapers.news_analysis import enrich_articles_with_crawl4ai
-                articles = enrich_articles_with_crawl4ai(articles, max_articles=3)
-            except Exception:
-                pass
-            articles = analyze_news_with_ai(articles, ticker)
+                articles = analyze_news_with_ai(articles, ticker)
+            except Exception as ae:
+                print(f"[CacheManager] AI News analysis failed: {ae}")
+        
         set_cached_news(ticker, articles)
         return articles
     except Exception as e:
