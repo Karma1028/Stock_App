@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 class Config:
     BASE_DIR = Path(__file__).parent

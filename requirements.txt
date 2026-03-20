@@ -16,3 +16,9 @@ transformers
 torch
 fastapi
 uvicorn
+python-dotenv
+reportlab
+matplotlib
+seaborn
+scipy
+openpyxl

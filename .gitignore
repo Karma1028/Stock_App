@@ -65,18 +65,18 @@ Universal_Engine_Workspace/
 
 # Root-level generator scripts and temp files
 _scan_nifty.py
-chart_definitions.py
 compile_generated_charts.py
 create_v3_resources.py
 execute_notebook_charts.py
 fetch_complete_data.py
 fetch_data_v2.py
 fix_and_train.py
-generate_*.py
+generate_magnum_opus.py
+generate_v3_charts.py
 inject_phase_cells.py
-train_*.py
 update_report_script.py
 git_tracked_files.txt
+rebrand_project.py
 
 # Generated reports, figures, and old test directories
 Data_Science_Interview_Materials/
@@ -85,9 +85,21 @@ reports/
 figures_gen/
 notebook_generators/
 tests/
+scrapers/
+pages/
+portfolios/
+docs/
+
+# PDFs - Keep only the main one
 *.pdf
-!Tata_Motors_Deep_Dive_Report.pdf
+!Tata_Motors_Complete_Report.pdf
 !Stock_Market_Alchemist_Magnum_Opus.pdf
+
+# Other documentation
 PROJECT_DOCUMENTATION.md
 RESUME_PROJECT_DETAILS.md
 YouTube_Comments_Consolidated.xlsx
+extracted_pdf.txt
+files_to_restore.txt
+.env
+.env.example
