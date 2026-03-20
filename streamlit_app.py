@@ -84,7 +84,7 @@ def main():
 
     st.sidebar.markdown("""
     <div style="text-align:center; color:#475569; font-size:0.7rem; padding:16px 0 4px;">
-        v3.0 • PyTorch + LangGraph<br>© 2026
+        v3.0 • PyTorch + LangGraph<br>© 2026 Tuhin Bhattacharya
     </div>
     """, unsafe_allow_html=True)
 
